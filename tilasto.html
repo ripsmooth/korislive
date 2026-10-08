@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Basket – taukotilastot</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;min-height:100%;font-family:Arial,Helvetica,sans-serif;background:transparent;color:#fff}body{padding:12px}.wrap{--scale:1;width:100%;max-width:1400px;margin:0 auto;transform:scale(var(--scale));transform-origin:top center}.title{text-align:center;font-weight:800;font-size:28px;letter-spacing:.5px;margin:0 0 12px;text-shadow:0 2px 5px #000}.teams{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch}.card{display:flex;flex-direction:column;background:rgba(8,12,18,.96);border:2px solid #344052;border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.35)}.head{display:grid;grid-template-columns:56px 1fr 100px;align-items:center;padding:12px 16px;background:#111a25;border-bottom:1px solid #344052}.logo{width:46px;height:46px;object-fit:contain;display:block}.team{font-size:22px;font-weight:800}.score{text-align:right;font-size:46px;font-weight:900;line-height:1}.table{width:100%;border-collapse:collapse;table-layout:fixed}.table th,.table td{padding:8px 7px;border-bottom:1px solid #2b3543}.table th{font-size:12px;color:#aeb8c5;background:#18212d}.table th:first-child,.table td:first-child{text-align:left;padding-left:12px;width:auto}.table th.numcol,.table td.numcol{width:34px;text-align:center;padding-left:0;padding-right:0}.table th:nth-child(n+3),.table td:nth-child(n+3){text-align:center;width:42px}.table th:nth-child(2),.table td:nth-child(2){width:auto}.table td{font-size:16px;font-weight:700}.table td:first-child{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.teamstats{margin-top:auto;display:grid;grid-template-columns:1fr 1fr;background:#101822}.stat{padding:10px 12px;text-align:center;border-right:1px solid #2b3543}.stat:last-child{border-right:0}.label{font-size:11px;color:#9eabb9;text-transform:uppercase}.value{font-size:20px;font-weight:800;margin-top:3px}.status{position:fixed;left:12px;bottom:12px;background:rgba(0,0,0,.8);padding:6px 9px;border-radius:6px;font:12px Arial;color:#b8c3cf;display:none}.picker{display:none}@media(max-width:800px){.teams{grid-template-columns:1fr}.title{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">TAUKOTILASTOT</div>
+  <div class="teams">
+    <section class="card"><div class="head"><img id="homeLogo" class="logo" alt=""><div id="homeName" class="team">KOTI</div><div id="homeScore" class="score">–</div></div><table class="table"><thead><tr><th class="numcol">#</th><th>PELAAJA</th><th>PIST</th><th>VIRH</th><th>2P</th><th>3P</th></tr></thead><tbody id="homeRows"><tr><td colspan="6">Odotetaan otteludataa…</td></tr></tbody></table><div class="teamstats"><div class="stat"><div class="label">Pisteet jaksoittain</div><div id="homePeriods" class="value">–</div></div><div class="stat"><div class="label">Aikalisät</div><div id="homeTimeouts" class="value">0</div></div></div></section>
+    <section class="card"><div class="head"><img id="awayLogo" class="logo" alt=""><div id="awayName" class="team">VIERAS</div><div id="awayScore" class="score">–</div></div><table class="table"><thead><tr><th class="numcol">#</th><th>PELAAJA</th><th>PIST</th><th>VIRH</th><th>2P</th><th>3P</th></tr></thead><tbody id="awayRows"><tr><td colspan="6">Odotetaan otteludataa…</td></tr></tbody></table><div class="teamstats"><div class="stat"><div class="label">Pisteet jaksoittain</div><div id="awayPeriods" class="value">–</div></div><div class="stat"><div class="label">Aikalisät</div><div id="awayTimeouts" class="value">0</div></div></div></section>
+  </div>
+</div><div id="status" class="status"></div>
+<script>
+const API='https://koripallo-api.torneopal.net/taso/rest/';
+const ACCEPT='json/df8e84j9xtdz269euy3h';
+let MATCH_ID='1012550';
+
+function applyUrlParams(){
+  const params=new URLSearchParams(location.search);
+
+  const match=params.get('match');
+  if(match!==null && /^\d+$/.test(match.trim())){
+    MATCH_ID=match.trim();
+  }
+
+  const rawScale=params.get('scale');
+  const scaleValue=rawScale===null || rawScale.trim()==='' ? 100 : Number(rawScale);
+  const scale=Number.isFinite(scaleValue)
+    ? Math.max(25,Math.min(300,scaleValue))/100
+    : 1;
+
+  document.querySelector('.wrap')?.style.setProperty('--scale',scale);
+}
+
+applyUrlParams();
+const $=id=>document.getElementById(id);
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function showError(s){$('status').textContent=s;$('status').style.display='block';}
+async function getMatch(){let r=await fetch(API+'getMatch?match_id='+encodeURIComponent(MATCH_ID)+'&timeStamp='+Date.now(),{cache:'no-store',headers:{Accept:ACCEPT}});if(!r.ok)throw Error('API HTTP '+r.status);let d=await r.json();if(d&&d.call&&d.call.status==='error')throw Error(d.call.error||'API-virhe');return d;}
+function teamIs(e,side){let v=String(e?.kotivieras||e?.team||e?.side||'').toLowerCase();return side==='home'?(v==='koti'||v==='home'||v==='a'||v==='team_a'||v==='1'): (v==='vieras'||v==='away'||v==='b'||v==='team_b'||v==='2');}
+function buildPlayers(events,side){let map={};for(const e of Array.isArray(events)?events:[]){if(!teamIs(e,side))continue;let id=e.player_id??e.playerId??e.shirt_number??e.player_name;if(id==null)continue;if(!map[id])map[id]={num:e.shirt_number??e.player_number??e.number??'',name:e.player_name||e.player||('#'+(e.shirt_number||'')),points:0,fouls:0,two:0,three:0};let p=map[id];let code=String(e.code||'').toLowerCase();let desc=String(e.code_fi||e.description||'').toLowerCase();if(code==='virhe'||desc.includes('virhe'))p.fouls++;if(code==='maali'||code.includes('kori')||desc.includes('kori')){if(desc.includes('3')||String(e.points||'')==='3'||e.value==3){p.points+=3;p.three++;}else if(desc.includes('1')||desc.includes('vapaa')||code.includes('vapaa'))p.points+=1;else{p.points+=2;p.two++;}}}
+return Object.values(map).sort((a,b)=>b.points-a.points||a.name.localeCompare(b.name,'fi'));}
+function rows(list){if(!list.length)return '<tr><td colspan="6">Ei pelaajatilastoja</td></tr>';return list.filter(p=>String(p.name||'').trim() && String(p.name).trim()!=='#').map(p=>'<tr><td class="numcol">'+esc(p.num??'')+'</td><td>'+esc(p.name)+'</td><td>'+p.points+'</td><td>'+p.fouls+'</td><td>'+p.two+'</td><td>'+p.three+'</td></tr>').join('')||'<tr><td colspan="6">Ei pelaajatilastoja</td></tr>';}
+function render(d){let m=d.match||d;let ev=Array.isArray(m.events)?m.events:[];$('homeName').textContent=m.team_A_name||'KOTI';$('awayName').textContent=m.team_B_name||'VIERAS';if(m.club_A_crest)$('homeLogo').src=m.club_A_crest;if(m.club_B_crest_dark_bg||m.club_B_crest)$('awayLogo').src=m.club_B_crest_dark_bg||m.club_B_crest;$('homeScore').textContent=m.live_A??m.fs_A??'–';$('awayScore').textContent=m.live_B??m.fs_B??'–';$('homeRows').innerHTML=rows(buildPlayers(ev,'home'));$('awayRows').innerHTML=rows(buildPlayers(ev,'away'));function periodScores(events,side){let totals={};for(const e of Array.isArray(events)?events:[]){if(!teamIs(e,side))continue;let per=e.period??e.quarter??e.jakso??e.q;let pts=0;let code=String(e.code||'').toLowerCase();let desc=String(e.code_fi||e.description||'').toLowerCase();if(code==='maali'||code.includes('kori')||desc.includes('kori')){if(desc.includes('3')||String(e.points||'')==='3'||e.value==3)pts=3;else if(desc.includes('1')||desc.includes('vapaa')||code.includes('vapaa'))pts=1;else pts=2;}if(per!=null&&pts){let n=String(per).replace(/[^0-9]/g,'');if(n)totals[n]=(totals[n]||0)+pts;}}let keys=Object.keys(totals).sort((a,b)=>Number(a)-Number(b));return keys.length?keys.map(k=>totals[k]).join('-'):'–';}
+$('homePeriods').textContent=periodScores(ev,'home');$('awayPeriods').textContent=periodScores(ev,'away');$('homeTimeouts').textContent=m.live_timeouts_A??0;$('awayTimeouts').textContent=m.live_timeouts_B??0;$('status').style.display='none';}
+async function poll(){try{render(await getMatch());}catch(e){showError(e.message+' — tarkista ottelu-ID tai API-yhteys');}finally{setTimeout(poll,1000)}}
+poll();
+</script></body></html>
