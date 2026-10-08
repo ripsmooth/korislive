@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Basket.fi TV-grafiikka v8 – kapea TV-tyyli 450 px</title>
+<style>
+:root{
+  --navy:#07101a;
+  --navy2:#0c1825;
+  --line:rgba(255,255,255,.18);
+  --muted:#aeb8c4;
+  --red:#ff3038;
+  --green:#6fe08f;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;width:100%;height:100%;overflow:hidden;
+  font-family:Arial,Helvetica,sans-serif;
+  background:transparent;color:#fff;
+}
+body{display:flex;align-items:flex-end;justify-content:center}
+
+.overlay{
+  --scale:1;
+  width:450px;
+  max-width:calc(100vw - 12px);
+  margin:0 auto 24px;
+  filter:drop-shadow(0 8px 20px rgba(0,0,0,.55));
+  transform:translateY(120%) scale(var(--scale));
+  transform-origin:bottom center;
+  animation:scoreIn .6s cubic-bezier(.2,.8,.2,1) .1s forwards;
+}
+@keyframes scoreIn{to{transform:translateY(0) scale(var(--scale))}}
+
+/* Main scoreboard: closely follows the supplied mockup */
+.mainbar{
+  position:relative;
+  width:100%;
+  height:100px;
+  display:grid;
+  grid-template-columns:171px 108px 171px;
+  overflow:hidden;
+  background:linear-gradient(180deg,#0d1a27 0%,#07111b 100%);
+  border:1px solid rgba(255,255,255,.22);
+  box-shadow:0 8px 25px rgba(0,0,0,.45);
+}
+
+/* angled central section */
+.mainbar:before,.mainbar:after{
+  content:"";
+  position:absolute;top:0;bottom:0;width:29px;
+  z-index:4;pointer-events:none;
+}
+.mainbar:before{
+  left:171px;
+  background:linear-gradient(180deg,#101f2d,#09131e);
+  clip-path:polygon(0 0,100% 0,66% 100%,0 100%);
+  border-left:1px solid rgba(255,255,255,.12);
+}
+.mainbar:after{
+  right:171px;
+  background:linear-gradient(180deg,#101f2d,#09131e);
+  clip-path:polygon(0 0,100% 0,100% 100%,34% 100%);
+  border-right:1px solid rgba(255,255,255,.12);
+}
+
+.team{
+  position:relative;min-width:0;height:100px;
+  display:flex;align-items:center;
+  z-index:2;
+}
+.team.home{padding-left:8px;padding-right:12px}
+.team.away{padding-left:12px;padding-right:8px;justify-content:flex-end}
+
+.logo-plate{
+  height:98px;width:80px;flex:0 0 80px;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#e8edf1,#bfc8d0);
+}
+.team.home .logo{
+    transform:translateX(-6px);
+}
+
+.team.away .logo{
+    transform:translateX(4px);
+}
+.team.home .logo-plate{
+  clip-path:polygon(0 0,100% 0,75% 100%,0 100%);
+  margin-left:-10px;margin-right:8px;
+}
+.team.away .logo-plate{
+  order:3;
+  clip-path:polygon(0 0,100% 0,100% 100%,25% 100%);
+  margin-left:8px;margin-right:-10px;
+}
+.logo{
+  width:43px;height:43px;object-fit:contain;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));
+}
+
+.team-copy{
+  position:relative;min-width:0;flex:1;height:100px;
+}
+.teamname{
+  position:absolute;left:0;right:0;top:18px;
+  font-size:13px;line-height:1.05;font-weight:900;
+  white-space:normal;overflow:hidden;text-overflow:ellipsis;
+  max-width:78px;
+}
+.teamline1,.teamline2{
+  display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.teamline2{margin-top:1px;font-size:.92em;font-weight:800;color:#d5dbe2}
+.team.away .team-copy{text-align:center}
+.team.home .team-copy{text-align:center}
+.team.away .teamname{left:0;right:0}
+.team.home .teamname{left:0;right:0}
+
+.score-wrap{
+  position:absolute;left:0;right:0;bottom:2px;
+  display:flex;align-items:center;gap:5px;
+}
+.team.home .score-wrap{justify-content:center}
+.team.away .score-wrap{justify-content:center}
+.score{
+  font-size:45px;line-height:.8;font-weight:900;
+  letter-spacing:-.045em;font-variant-numeric:tabular-nums;
+  transform:translateY(-8px);
+}
+.foulballs{
+  position:absolute;
+  top:2px;
+  left:0;
+  width:82px;
+  height:12px;
+  padding:0;
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:flex-start;
+  gap:4px;
+  box-sizing:border-box;
+  background:transparent;
+  border:0;
+  border-radius:0;
+  z-index:20;
+  overflow:visible;
+}
+.team.away .foulballs{
+  left:auto;
+  right:-16px;
+  top:2px;
+}
+.foulball{
+  display:block;
+  width:10px;
+  height:10px;
+  min-width:10px;
+  min-height:10px;
+  flex:0 0 10px;
+  border-radius:50%;
+  border:1px solid #07101a;
+  background:#fff;
+  box-shadow:0 0 0 1px rgba(255,255,255,.5);
+  opacity:1;
+  visibility:visible;
+  transition:background .2s ease,box-shadow .2s ease;
+}
+
+.foulball.active{
+  background:var(--red);
+  box-shadow:0 0 5px rgba(255,48,56,.35);
+}
+.foulball.new{animation:foulRise .35s cubic-bezier(.2,.8,.2,1)}
+@keyframes foulRise{
+  0%{opacity:.4;transform:scaleX(.65)}
+  70%{opacity:1;transform:scaleX(1.08)}
+  100%{opacity:1;transform:scaleX(1)}
+}
+
+
+/* Center */
+.center{
+  position:relative;z-index:6;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#0b1825,#07111b);
+}
+.period{
+  position:absolute;top:5px;
+  min-width:66px;text-align:center;
+  padding:2px 6px;border-radius:2px;
+  background:#17304a;
+  font-size:8px;font-weight:900;letter-spacing:.06em;
+}
+.clock{
+  margin-top:8px;
+  font-size:28px;line-height:1;
+  font-weight:900;font-variant-numeric:tabular-nums;
+}
+.timeouts{
+  display:none;
+}
+.center:after{
+  content:"";
+  position:absolute;right:0;top:0;bottom:0;width:1px;
+  background:rgba(255,255,255,.1);
+}
+
+/* Quarters and live status retain v6 functionality, but compact */
+.quarters{
+  width:100%;display:grid;grid-template-columns:repeat(4,1fr);
+  gap:1px;margin-top:2px;
+}
+.q{
+  min-width:0;background:rgba(7,12,18,.97);
+  padding:3px 1px;text-align:center;
+  font-size:9px;font-weight:900;line-height:1;
+}
+.q small{
+  display:block;font-size:6px;color:var(--muted);
+  margin-bottom:2px;font-weight:700;
+}
+.latest{
+  width:100%;margin:3px 0 0;
+  border-radius:3px;padding:4px 7px;
+  background:rgba(7,12,18,.95);
+  border:1px solid rgba(255,255,255,.10);
+  font-size:13px;font-weight:700;
+  line-height:1.35;
+  text-align:left;
+}
+.latest-event{
+  display:grid;
+  grid-template-columns:108px minmax(0,1fr) 58px 72px;
+  align-items:center;
+  column-gap:7px;
+  white-space:nowrap;
+  overflow:hidden;
+  min-height:20px;
+  margin:1px 0;
+}
+.latest-event .latest-tag{
+  display:block;
+  width:100%;
+  box-sizing:border-box;
+  padding:2px 7px;
+  border-radius:4px;
+  background:var(--green);
+  color:#07101a;
+  font-size:11px;
+  line-height:1.1;
+  font-weight:900;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  text-align:center;
+}
+.latest-event .latest-player{
+  color:#fff;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.latest-event .latest-team{
+  color:var(--green);
+  font-size:10px;
+  font-weight:900;
+  text-align:center;
+  white-space:nowrap;
+}
+.latest-event .latest-score{
+  color:#fff;
+  font-weight:900;
+  text-align:right;
+  white-space:nowrap;
+}
+.latest b{color:var(--green)}
+
+.event-pop{
+  position:fixed;left:50%;bottom:128px;
+  transform:translate(-50%,25px) scale(.97);
+  min-width:330px;max-width:min(560px,90vw);
+  display:none;grid-template-columns:auto 1fr auto;
+  align-items:center;gap:9px;
+  padding:8px 11px 8px 8px;
+  border-radius:7px;background:rgba(5,9,14,.985);
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 12px 35px rgba(0,0,0,.55);
+  z-index:50;opacity:0;
+}
+.event-pop.show{
+  display:grid;
+  animation:eventIn .3s cubic-bezier(.2,.8,.2,1) forwards,
+            eventOut .35s ease 4.4s forwards;
+}
+@keyframes eventIn{to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@keyframes eventOut{to{opacity:0;transform:translate(-50%,-10px) scale(.98)}}
+.event-icon{
+  width:38px;height:38px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:19px;font-weight:900;background:#fff;color:#080b10;
+}
+.event-pop.foul .event-icon{background:#ffd166}
+.event-pop.score2 .event-icon{background:#68e58d}
+.event-pop.score3 .event-icon{background:#68b5ff}
+.event-pop.ft .event-icon{background:#d4b3ff}
+.event-pop .event-type{
+  font-size:8px;font-weight:900;letter-spacing:.12em;
+  color:#9ea8b4;margin-bottom:1px;
+}
+.event-pop .event-player{font-size:16px;font-weight:900}
+.event-pop .event-detail{font-size:8px;color:#9ea8b4;margin-top:2px}
+.event-pop .event-score{
+  font-size:24px;font-weight:900;font-variant-numeric:tabular-nums;
+}
+button{
+  border:0;background:#202938;color:#fff;padding:6px 9px;
+  border-radius:5px;cursor:pointer;
+}
+#raw{
+  display:none;position:fixed;inset:50px 2vw 2vw;background:#05070a;
+  color:#9cffb7;border:1px solid #283342;border-radius:9px;padding:15px;
+  overflow:auto;white-space:pre-wrap;font:12px Consolas,monospace;z-index:90;
+}
+#error{
+  display:none;position:fixed;top:10px;left:10px;right:10px;
+  background:#321318;color:#ffb3b3;border-radius:7px;
+  padding:8px 12px;font-weight:800;z-index:100;text-align:center;
+}
+.live-dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:#68e58d;margin-right:3px;
+  box-shadow:0 0 0 0 rgba(104,229,141,.7);
+  animation:pulse 1.7s infinite;
+}
+@keyframes pulse{
+  70%{box-shadow:0 0 0 5px rgba(104,229,141,0)}
+  100%{box-shadow:0 0 0 0 rgba(104,229,141,0)}
+}
+@media(max-width:500px){
+  .overlay{width:calc(100vw - 6px)}
+  .mainbar{grid-template-columns:minmax(0,1fr) 82px minmax(0,1fr)}
+  .logo-plate{width:48px;flex-basis:48px}
+  .logo{width:36px;height:36px}
+  .teamname{font-size:10px;max-width:62px}
+  .foulballs{width:56px;height:11px;top:2px;gap:1px}
+  .foulball{width:9px;height:9px;min-width:9px;min-height:9px;flex-basis:9px}
+  .score{font-size:38px}
+  .event-pop{min-width:0;width:92vw}
+}
+</style>
+</head>
+<body>
+<div class="overlay">
+  <div class="mainbar">
+    <div class="team home">
+      <div class="logo-plate"><img id="homeLogo" class="logo" alt=""></div>
+      <div class="team-copy">
+        <div id="homeFoulsBalls" class="foulballs" aria-label="Kotijoukkueen virheet"><span class="foulball"></span><span class="foulball"></span><span class="foulball"></span><span class="foulball"></span><span class="foulball"></span></div>
+        <div id="homeName" class="teamname"><span class="teamline1">KOTI</span><span class="teamline2"></span></div>
+        <div class="score-wrap">
+          <div id="homeScore" class="score">–</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="center">
+      <div id="period" class="period">–</div>
+      <div id="clock" class="clock">–:–</div>
+      <div id="timeouts" class="timeouts"></div>
+    </div>
+
+    <div class="team away">
+      <div class="team-copy">
+        <div id="awayFoulsBalls" class="foulballs" aria-label="Vierasjoukkueen virheet"><span class="foulball"></span><span class="foulball"></span><span class="foulball"></span><span class="foulball"></span><span class="foulball"></span></div>
+        <div id="awayName" class="teamname"><span class="teamline1">VIERAS</span><span class="teamline2"></span></div>
+        <div class="score-wrap">
+          <div id="awayScore" class="score">–</div>
+        </div>
+      </div>
+      <div class="logo-plate"><img id="awayLogo" class="logo" alt=""></div>
+    </div>
+  </div>
+  <div id="quarters" class="quarters"></div>
+  <div id="latest" class="latest"><b>LIVE</b>&nbsp; Odotetaan otteludataa…</div>
+</div>
+<div id="eventPop" class="event-pop">
+  <div id="eventIcon" class="event-icon">+</div>
+  <div>
+    <div id="eventType" class="event-type">TAPAHTUMA</div>
+    <div id="eventPlayer" class="event-player">–</div>
+    <div id="eventDetail" class="event-detail"></div>
+  </div>
+  <div id="eventScore" class="event-score">–</div>
+</div>
+<pre id="raw"></pre>
+<div id="error"></div>
+
+<script>
+let MATCH_ID = "1006004";
+
+function applyUrlMatch(){
+  const raw = new URLSearchParams(location.search).get("match");
+  if(raw !== null && /^\d+$/.test(raw.trim())){
+    MATCH_ID = raw.trim();
+  }
+}
+applyUrlMatch();
+const API="https://koripallo-api.torneopal.net/taso/rest/";
+const ACCEPT_VALUE="json/df8e84j9xtdz269euy3h";
+
+let lastOk=0;
+let previousEvents=new Set();
+let firstEventRender=true;
+let popupTimer=null;
+let previousFoulsA=null;
+let previousFoulsB=null;
+
+const $=id=>document.getElementById(id);
+
+function applyUrlScale(){
+  const raw = new URLSearchParams(location.search).get("scale");
+  const value = raw === null || raw.trim() === "" ? 100 : Number(raw);
+  const scale = Number.isFinite(value) ? Math.max(25, Math.min(300, value)) / 100 : 1;
+  document.documentElement.style.setProperty("--score-scale", scale);
+  document.querySelector(".overlay")?.style.setProperty("--scale", scale);
+}
+applyUrlScale();
+
+function esc(v){
+ return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+
+function extractMatchId(input){
+  const s=String(input||"").trim();
+  if(/^\d+$/.test(s)) return s;
+  const m=s.match(/\/match\/(\d+)/i) || s.match(/[?&]match_id=(\d+)/i);
+  if(!m) throw new Error("Ottelu-ID:tä ei löytynyt osoitteesta. Esim. https://tulospalvelu.basket.fi/match/1012550/events");
+  return m[1];
+}
+
+function loadFromUrl(){
+  try{
+    const input=document.getElementById("matchUrl").value;
+    MATCH_ID=extractMatchId(input);
+    history.replaceState(null,"",location.href.split("#")[0]+"#match="+MATCH_ID);
+    document.getElementById("error").style.display="none";
+    poll();
+  }catch(e){
+    const el=document.getElementById("error");
+    el.textContent=e.message;
+    el.style.display="block";
+  }
+}
+
+function loadInitialMatch(){
+  const hash=location.hash.match(/match=(\d+)/i);
+  if(hash && !new URLSearchParams(location.search).has("match")){
+    MATCH_ID=hash[1];
+  }
+}
+
+async function getMatch(){
+ const url=API+"getMatch?match_id="+MATCH_ID+"&timeStamp="+Date.now();
+ const r=await fetch(url,{cache:"no-store",headers:{"Accept":ACCEPT_VALUE}});
+ if(!r.ok) throw new Error("HTTP "+r.status);
+ const d=await r.json();
+ if(d?.call?.status==="error") throw new Error(d.call.error||"API-virhe");
+ return d;
+}
+
+
+function classifyEvent(e){
+  const c=String(e?.code||"").toLowerCase();
+  const desc=String(e?.description||e?.code_fi||"").toLowerCase();
+  if(c==="virhe" || desc.includes("virhe")) return "foul";
+  if(c==="maali"){
+    if(desc.includes("3 ")) return "score3";
+    if(desc.includes("vap") || desc.includes("ft") || desc.includes("1 ")) return "ft";
+    return "score2";
+  }
+  if(c.includes("rangaistus") || c.includes("vapaa")) return "ft";
+  return "other";
+}
+
+function eventName(e){
+  const c=String(e?.code||"").toLowerCase();
+  const desc=String(e?.description||e?.code_fi||"").toLowerCase();
+
+  if(c==="virhe" || desc.includes("virhe"))
+    return "VIRHE";
+
+  if(c.includes("aikalis") || desc.includes("aikalis"))
+    return "AIKALISÄ";
+
+  if(c==="maali"){
+    if(desc.includes("3 "))
+      return "3 PISTETTÄ";
+
+    if(desc.includes("vap") || desc.includes("ft") || desc.includes("1 "))
+      return "VAPAAHEITTO";
+
+    return "2 PISTETTÄ";
+  }
+
+  if(c.includes("rangaistus") || c.includes("vapaa"))
+    return "VAPAAHEITTO";
+
+  return String(e?.code_fi||e?.description||e?.code||"").toUpperCase();
+}
+
+function foulNumber(e){
+  const pid=String(e?.player_id||e?.player_name||"");
+  if(!pid) return "";
+  const before=(window.__allLatestEvents||[]).filter(x=>classifyEvent(x)==="foul" && String(x?.player_id||x?.player_name||"")===pid);
+  const idx=before.findIndex(x=>String(x?.event_id||"")===String(e?.event_id||""));
+  return (idx>=0?idx+1:before.length)+". VIRHE";
+}
+
+function eventLabel(e,type){
+  if(type==="foul") return "VIRHE";
+  if(type==="score3") return "3 PISTETTÄ";
+  if(type==="score2") return "2 PISTETTÄ";
+  if(type==="ft") return "VAPAAHEITTO";
+  return eventName(e);
+}
+
+function showEventPopup(e){
+  const type=classifyEvent(e);
+  if(type==="other") return;
+
+  const pop=$("eventPop");
+  const icon=$("eventIcon");
+  const player=$("eventPlayer");
+  const detail=$("eventDetail");
+  const score=$("eventScore");
+
+  pop.classList.remove("show","foul","score2","score3","ft");
+  void pop.offsetWidth;
+  pop.classList.add("show",type);
+
+  icon.textContent=type==="foul"?"!":type==="score3"?"3":type==="ft"?"1":"2";
+  $("eventType").textContent=eventLabel(e,type);
+  player.textContent=e.player_name
+    ? "#"+(e.shirt_number||"")+" "+e.player_name
+    : (e.kotivieras==="koti" ? $("homeName").textContent : $("awayName").textContent);
+
+  detail.textContent=(e.time||"")+
+    (e.kotivieras ? " • "+(e.kotivieras==="koti"?$("homeName").textContent:$("awayName").textContent) : "");
+
+  score.textContent=(e.s_A!==undefined&&e.s_B!==undefined)?e.s_A+" – "+e.s_B:"";
+
+  clearTimeout(popupTimer);
+  popupTimer=setTimeout(()=>{
+    pop.classList.remove("show");
+  },4800);
+}
+
+function renderFoulBalls(targetId,count,previousCount){
+  const el=$(targetId);
+  const n=Math.max(0,Math.min(5,Number(count)||0));
+  const hasPrevious=previousCount!==null && previousCount!==undefined;
+  const old=Math.max(0,Math.min(5,Number(previousCount)||0));
+  const balls=el.querySelectorAll(".foulball");
+  // Keep five balls permanently in the DOM. Only their active state changes.
+  for(let i=0;i<balls.length;i++){
+    const isActive=i < n;
+    const justAdded=hasPrevious && n>old && i===n-1;
+    balls[i].classList.toggle("active",isActive);
+    balls[i].classList.toggle("new",justAdded);
+  }
+}
+
+function setTeamName(id,name){
+  const el=$(id);
+  const clean=String(name||"").trim();
+  const words=clean.split(/\s+/);
+  let a="",b="";
+  if(words.length<=1){
+    a=clean;
+  }else{
+    // Split roughly in half while keeping the name visually balanced.
+    let best=1,bestDiff=Infinity;
+    for(let i=1;i<words.length;i++){
+      const left=words.slice(0,i).join(" ");
+      const right=words.slice(i).join(" ");
+      const diff=Math.abs(left.length-right.length);
+      if(diff<bestDiff){bestDiff=diff;best=i;}
+    }
+    a=words.slice(0,best).join(" ");
+    b=words.slice(best).join(" ");
+  }
+  const l1=el.querySelector(".teamline1");
+  const l2=el.querySelector(".teamline2");
+  l1.textContent=a;
+  l2.textContent=b;
+  l2.style.display=b ? "block" : "none";
+}
+
+function render(d){
+ const m=d.match||d;
+
+ setTeamName("homeName",m.team_A_name||"KOTI");
+ setTeamName("awayName",m.team_B_name||"VIERAS");
+ $("homeScore").textContent=m.live_A??m.fs_A??"–";
+ $("awayScore").textContent=m.live_B??m.fs_B??"–";
+ const foulsA=Number(m.live_fouls_A)||0;
+ const foulsB=Number(m.live_fouls_B)||0;
+ renderFoulBalls("homeFoulsBalls",foulsA,previousFoulsA);
+ renderFoulBalls("awayFoulsBalls",foulsB,previousFoulsB);
+ previousFoulsA=foulsA;
+ previousFoulsB=foulsB;
+
+ if(m.club_A_crest) $("homeLogo").src=m.club_A_crest;
+ if(m.club_B_crest_dark_bg||m.club_B_crest)
+   $("awayLogo").src=m.club_B_crest_dark_bg||m.club_B_crest;
+
+ const p=Number(m.live_period);
+ $("period").textContent=p>=1&&p<=4?p+". JAKSO":
+   String(m.status||"").toLowerCase()==="played"?"LOPPUTULOS":
+   String(m.status||"").toLowerCase()==="break"?"TAUKO":"–";
+
+ $("clock").textContent=m.live_time_mmss||m.live_time||"–:–";
+ $("timeouts").textContent="Aikalisät "+(m.live_timeouts_A??0)+" – "+(m.live_timeouts_B??0);
+
+ let q="";
+ for(let i=1;i<=4;i++){
+   q+=`<div class="q"><small>${i}. JAKSO</small>${esc(m["p"+i+"s_A"]??"–")} – ${esc(m["p"+i+"s_B"]??"–")}</div>`;
+ }
+ $("quarters").innerHTML=q;
+
+ renderLatest(Array.isArray(m.events)?m.events:[]);
+ $("raw").textContent=JSON.stringify(d,null,2);
+
+ lastOk=Date.now();
+ $("error").style.display="none";
+}
+
+function getPlayerFoulNumber(event, events){
+ const playerId=String(event.player_id||"");
+ const playerName=String(event.player_name||"").trim().toLowerCase();
+ let count=0;
+ for(const x of events){
+   const c=String(x.code||"").toLowerCase();
+   const d=String(x.description||x.code_fi||"").toLowerCase();
+   const isFoul=c==="virhe" || d.includes("virhe");
+   if(!isFoul) continue;
+
+   const samePlayer = playerId
+     ? String(x.player_id||"")===playerId
+     : String(x.player_name||"").trim().toLowerCase()===playerName;
+
+   if(samePlayer) count++;
+   if(x===event) break;
+ }
+ return count;
+}
+
+function renderLatest(events){
+ window.__allLatestEvents=events;
+ const useful=events.filter(e=>{
+   const c=String(e.code||"").toLowerCase();
+   const d=String(e.description||e.code_fi||"").toLowerCase();
+
+   // Älä näytä tapahtumalistassa ottelun alku- tai lopputapahtumia.
+   const matchStartEnd =
+     c.includes("ottelualk") || c.includes("ottelulopp") ||
+     c.includes("matchstart") || c.includes("matchend") ||
+     d.includes("ottelu alkoi") || d.includes("ottelu loppui");
+
+   return c!=="tuomarisaapui" && c!=="vaihdajakso" && !matchStartEnd;
+ });
+
+ const recent=useful.slice(-1).reverse();
+ if(!recent.length){
+   $("latest").innerHTML="<b>LIVE</b>&nbsp; Ei pelitapahtumia";
+   return;
+ }
+
+ const e=recent[0];
+
+ const signature=String(e.event_id||(
+   (e.time||"")+"|"+(e.code||"")+"|"+(e.player_id||"")+"|"+(e.s_A??"")+"|"+(e.s_B??"")
+ ));
+
+ // Show the event only when it is genuinely new.
+ if(!firstEventRender && !previousEvents.has(signature)){
+   showEventPopup(e);
+ }
+
+ previousEvents=new Set(useful.slice(-30).map(x=>String(
+   x.event_id||((x.time||"")+"|"+(x.code||"")+"|"+(x.player_id||"")+"|"+(x.s_A??"")+"|"+(x.s_B??""))
+ )));
+ firstEventRender=false;
+
+ const desc=e.code_fi||e.description||e.code||"";
+ const player=e.player_name?` #${e.shirt_number||""} ${e.player_name}`:"";
+ const score=(e.s_A!==undefined&&e.s_B!==undefined)?` • ${e.s_A}–${e.s_B}`:"";
+
+ $("latest").innerHTML=recent.map(ev=>{
+   const d=eventName(ev);
+   const pl=ev.player_name?`#${ev.shirt_number||""} ${ev.player_name}`:"";
+   const team=String(ev.kotivieras||"").toLowerCase()==="koti" ? "KOTI" :
+              String(ev.kotivieras||"").toLowerCase()==="vieras" ? "VIERAS" : "";
+   const type=classifyEvent(ev);
+   const sc=(ev.s_A!==undefined&&ev.s_B!==undefined)?`${ev.s_A}–${ev.s_B}`:"";
+   const timeoutEvent = String(ev.code||"").toLowerCase().includes("aikalis") ||
+                        String(ev.description||ev.code_fi||"").toLowerCase().includes("aikalis");
+   const last=timeoutEvent
+     ? ""
+     : type==="foul"
+       ? `${getPlayerFoulNumber(ev,events)}. VIRHE`
+       : sc;
+   return `<div class="latest-event"><span class="latest-tag">${esc(d)}</span><span class="latest-player">${esc(pl)}</span><span class="latest-team">${esc(team)}</span><span class="latest-score">${esc(last)}</span></div>`;
+ }).join("");
+}
+function toggleRaw(){
+ const r=$("raw");
+ r.style.display=r.style.display==="block"?"none":"block";
+}
+
+async function poll(){
+ try{
+   render(await getMatch());
+ }catch(e){
+   const age=lastOk?Math.round((Date.now()-lastOk)/1000):null;
+   $("error").textContent="API-yhteys katkesi"+(age!==null?" • viimeisin tieto "+age+" s sitten":"")+" • "+e.message;
+   $("error").style.display="block";
+ }
+}
+
+loadInitialMatch();
+poll();
+setInterval(poll,1000);
+</script>
+</body>
+</html>
