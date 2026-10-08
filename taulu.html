@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Basket.fi – Sarjataulukko – 1920x1080 lähetys</title>
+<style>
+:root{
+  --navy:#07101a;
+  --navy2:#0c1825;
+  --line:rgba(255,255,255,.18);
+  --muted:#aeb8c4;
+  --green:#6fe08f;
+  --white:#fff;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  padding:0;
+  width:1920px;
+  height:1080px;
+  background:transparent;
+  overflow:hidden;
+}
+body{
+  font-family:Arial,Helvetica,sans-serif;
+  color:var(--white);
+}
+.wrap{
+  --scale:1;
+  width:1600px;
+  background:var(--navy);
+  transform:scale(var(--scale));
+  transform-origin:top left;
+  border:1px solid var(--line);
+  overflow:hidden;
+}
+.head{
+  height:116px;
+  display:flex;
+  align-items:center;
+  padding:0 36px;
+  background:var(--navy2);
+  border-bottom:1px solid var(--line);
+}
+.title{
+  font-size:44px;
+  font-weight:800;
+  letter-spacing:.5px;
+}
+.subtitle{
+  margin-left:auto;
+  font-size:26px;
+  color:var(--muted);
+  white-space:nowrap;
+}
+.table{
+  width:100%;
+}
+.row{
+  display:grid;
+  grid-template-columns:84px minmax(0,1fr) 84px 84px 84px 110px 164px 110px;
+  min-height:92px;
+  align-items:center;
+  border-bottom:1px solid rgba(255,255,255,.09);
+}
+.row:last-child{border-bottom:0}
+.row.header{
+  min-height:72px;
+  color:var(--muted);
+  font-size:22px;
+  font-weight:800;
+  letter-spacing:.4px;
+  background:rgba(255,255,255,.035);
+}
+.cell{
+  padding:0 14px;
+  text-align:center;
+  font-size:32px;
+  font-weight:700;
+}
+.header .cell{font-size:22px}
+.cell.team{
+  text-align:left;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-weight:700;
+}
+.logo-cell{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.logo{
+  width:60px;
+  height:60px;
+  object-fit:contain;
+  display:block;
+}
+.pos{
+  color:var(--muted);
+  font-weight:800;
+}
+.points{
+  color:var(--green);
+  font-weight:900;
+}
+.row.top .pos{color:var(--green)}
+.status{
+  min-height:60px;
+  padding:12px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:rgba(255,255,255,.025);
+  color:var(--muted);
+  font-size:20px;
+  border-top:1px solid var(--line);
+}
+.dot{
+  display:inline-block;
+  width:14px;height:14px;
+  border-radius:50%;
+  margin-right:12px;
+  background:var(--green);
+}
+.error{
+  padding:24px 32px;
+  color:#ff8a8a;
+  font-size:24px;
+  line-height:1.35;
+  display:none;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+<div class="title" id="title">SARJATAULUKKO</div>
+    <div class="subtitle" id="groupName">Ladataan…</div>
+  </div>
+
+  <div class="table">
+    <div class="row header">
+      <div class="cell">#</div>
+      <div class="cell team">JOUKKUE</div>
+      <div class="cell">O</div>
+      <div class="cell">V</div>
+      <div class="cell">H</div>
+      <div class="cell">V%</div>
+      <div class="cell">KORIT</div>
+      <div class="cell">P</div>
+    </div>
+    <div id="rows"></div>
+  </div>
+
+  <div class="error" id="error"></div>
+  <div class="status">
+    <div><span class="dot"></span><span id="statusText">Päivitetään automaattisesti</span></div>
+    <div id="updated">–</div>
+  </div>
+</div>
+
+<script>
+const API = "https://koripallo-api.torneopal.net/taso/rest/";
+
+
+function applyUrlParams(){
+  const params = new URLSearchParams(window.location.search);
+
+  // Oletus 100 %. URL: ?scale=112 -> 112 %
+  const rawScale = params.get("scale");
+  const scaleValue = rawScale === null || rawScale.trim() === "" ? 100 : Number(rawScale);
+  const scale = Number.isFinite(scaleValue)
+    ? Math.min(300, Math.max(25, scaleValue))
+    : 100;
+
+  document.querySelector(".wrap").style.setProperty("--scale", String(scale / 100));
+
+  // Sarja annetaan suoraan URL-osoitteessa:
+  // ?series=https://tulospalvelu.basket.fi/category/36!lankp2627/group/303167
+  const seriesUrl = params.get("series");
+
+  if(seriesUrl){
+    applySeriesUrl(seriesUrl);
+  }
+}
+
+function applySeriesUrl(rawUrl){
+  const value = String(rawUrl || "").trim();
+  if(!value) throw new Error("Sarjan URL puuttuu.");
+
+  let u;
+  try { u = new URL(value); }
+  catch(e){ throw new Error("Sarjan URL ei ole kelvollinen."); }
+
+  const m = u.pathname.match(/\/category\/([^!\/]+)!([^\/]+)\/group\/([^\/?#]+)/i);
+  if(!m) throw new Error("Sarjan URL:n pitää olla muotoa .../category/36!lankp2627/group/303167");
+
+  window.BASKET_CONFIG = {
+    categoryId: decodeURIComponent(m[1]),
+    competitionId: decodeURIComponent(m[2]),
+    groupId: decodeURIComponent(m[3])
+  };
+
+  CATEGORY_ID = window.BASKET_CONFIG.categoryId;
+  COMPETITION_ID = window.BASKET_CONFIG.competitionId;
+  GROUP_ID = window.BASKET_CONFIG.groupId;
+
+  return window.BASKET_CONFIG;
+}
+
+const ACCEPT_VALUE = "json/df8e84j9xtdz269euy3h";
+
+/* Oletussarja, jos ?series= -parametria ei anneta */
+let COMPETITION_ID = "lankp2627";
+let CATEGORY_ID = "36";
+let GROUP_ID = "303167";
+
+/* Päivitysväli millisekunteina */
+const REFRESH_MS = 10000;
+
+const $ = id => document.getElementById(id);
+
+applyUrlParams();
+
+function esc(v){
+  return String(v ?? "").replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function num(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function pct(won, played){
+  if(!played) return "–";
+  return Math.round((won / played) * 100) + "%";
+}
+
+function getTeams(data){
+  if(Array.isArray(data?.group?.teams)) return data.group.teams;
+  if(Array.isArray(data?.teams)) return data.teams;
+  return [];
+}
+
+function getMatches(data){
+  if(Array.isArray(data?.group?.matches)) return data.group.matches;
+  if(Array.isArray(data?.matches)) return data.matches;
+  return [];
+}
+
+function teamLogoFromObject(t){
+  return t.club_A_crest || t.club_B_crest ||
+         t.club_crest || t.club_logo || t.team_logo ||
+         t.logo || t.img_url || t.image_url || "";
+}
+
+async function fetchTeamDetails(teamId){
+  if(!teamId) return {};
+  try{
+    const url = API +
+      "getTeam?team_id=" + encodeURIComponent(teamId) +
+      "&competition_id=" + encodeURIComponent(COMPETITION_ID) +
+      "&category_id=" + encodeURIComponent(CATEGORY_ID) +
+      "&timeStamp=" + Date.now();
+
+    const r = await fetch(url,{
+      cache:"no-store",
+      headers:{ "Accept":ACCEPT_VALUE }
+    });
+    if(!r.ok) return {};
+    const d = await r.json();
+    return d?.team || d || {};
+  }catch(e){
+    return {};
+  }
+}
+
+async function loadStandings(){
+  const url =
+    API +
+    "getGroup" +
+    "?competition_id=" + encodeURIComponent(COMPETITION_ID) +
+    "&category_id=" + encodeURIComponent(CATEGORY_ID) +
+    "&group_id=" + encodeURIComponent(GROUP_ID) +
+    "&matches=1" +
+    "&timeStamp=" + Date.now();
+
+  const r = await fetch(url,{
+    cache:"no-store",
+    headers:{ "Accept":ACCEPT_VALUE }
+  });
+
+  if(!r.ok) throw new Error("HTTP " + r.status);
+
+  const data = await r.json();
+
+  if(data?.call?.status === "error"){
+    throw new Error(data.call.error || "API-virhe");
+  }
+
+  const teams = getTeams(data);
+
+  if(!teams.length){
+    throw new Error("Sarjataulukon joukkueita ei löytynyt API-vastauksesta.");
+  }
+
+  const mainTitle =
+    data?.group?.category_name ||
+    data?.category_name ||
+    data?.competition?.category_name ||
+    "";
+
+  const groupName =
+    data?.group?.group_name ||
+    data?.group?.name ||
+    "Ryhmä " + GROUP_ID;
+
+  /* Näytetään pääotsikko ennen lohkon nimeä.
+     Esim. "19-vuotiaat pojat, valtakunn. I divisioona – Syksyn Lohko A" */
+  $("groupName").textContent = mainTitle
+    ? mainTitle + " – " + groupName
+    : groupName;
+
+  /* Lasketaan tehdyt/päästetyt korit ottelutiedoista.
+     Näin KORIT = tehdyt–päästetyt, ei pisteprosentti. */
+  const gf = {};
+  const ga = {};
+
+  teams.forEach(t=>{
+    gf[t.team_id] = 0;
+    ga[t.team_id] = 0;
+  });
+
+  const matches = getMatches(data);
+
+  matches.forEach(m=>{
+    const a = m.team_A_id;
+    const b = m.team_B_id;
+    const sa = Number(m.fs_A ?? m.live_A);
+    const sb = Number(m.fs_B ?? m.live_B);
+
+    if(!a || !b || !Number.isFinite(sa) || !Number.isFinite(sb)) return;
+
+    if(gf[a] === undefined){ gf[a]=0; ga[a]=0; }
+    if(gf[b] === undefined){ gf[b]=0; ga[b]=0; }
+
+    gf[a] += sa;
+    ga[a] += sb;
+    gf[b] += sb;
+    ga[b] += sa;
+  });
+
+  /* Haetaan seurojen logot joukkue-ID:n perusteella.
+     getTeam voi palauttaa logon eri kenttänimellä eri kilpailuissa,
+     joten kaikki yleiset Torneopal-kentät tarkistetaan. */
+  const details = await Promise.all(
+    teams.map(t=>fetchTeamDetails(t.team_id))
+  );
+
+  teams.forEach((t,i)=>{
+    const d = details[i] || {};
+    t._logo =
+      teamLogoFromObject(t) ||
+      teamLogoFromObject(d) ||
+      teamLogoFromObject(d.club || {}) ||
+      teamLogoFromObject(d.team || {});
+  });
+
+  teams.sort((a,b)=>{
+    const pa = num(a.current_standing);
+    const pb = num(b.current_standing);
+    if(pa && pb) return pa-pb;
+    return num(b.points)-num(a.points);
+  });
+
+  $("rows").innerHTML = teams.map((t,i)=>{
+    const played = num(t.matches_played);
+    const won = num(t.matches_won);
+    const lost = num(t.matches_lost);
+    const standing = num(t.current_standing) || (i+1);
+    const points = num(t.points);
+    const made = gf[t.team_id] ?? "–";
+    const allowed = ga[t.team_id] ?? "–";
+
+    return `
+      <div class="row ${standing===1 ? "top" : ""}">
+        <div class="cell pos">${standing}</div>
+        <div class="cell team" title="${esc(t.team_name || "")}">
+          ${esc(t.team_name || "–")}
+        </div>
+        <div class="cell">${played}</div>
+        <div class="cell">${won}</div>
+        <div class="cell">${lost}</div>
+        <div class="cell">${pct(won,played)}</div>
+        <div class="cell">${made}–${allowed}</div>
+        <div class="cell points">${points}</div>
+      </div>
+    `;
+  }).join("");
+
+  $("error").style.display = "none";
+  $("statusText").textContent = "Live-data päivitetty";
+  $("updated").textContent = new Date().toLocaleTimeString("fi-FI");
+}
+
+async function poll(){
+  try{
+    await loadStandings();
+  }catch(e){
+    $("statusText").textContent = "Datayhteysvirhe";
+    $("error").textContent =
+      "Sarjataulukkoa ei voitu päivittää: " + (e?.message || e);
+    $("error").style.display = "block";
+  }
+}
+
+poll();
+setInterval(poll, REFRESH_MS);
+</script>
+</body>
+</html>
