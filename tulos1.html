@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Basket.fi TV-grafiikka v8 – kapea TV-tyyli 450 px</title>
+<title>Basket.fi TV-grafiikka – Yksi viimeisin tapahtuma</title>
 <style>
 :root{
   --navy:#07101a;
@@ -277,44 +277,6 @@ body{display:flex;align-items:flex-end;justify-content:center}
   white-space:nowrap;
 }
 .latest b{color:var(--green)}
-
-.event-pop{
-  position:fixed;left:50%;bottom:128px;
-  transform:translate(-50%,25px) scale(.97);
-  min-width:330px;max-width:min(560px,90vw);
-  display:none;grid-template-columns:auto 1fr auto;
-  align-items:center;gap:9px;
-  padding:8px 11px 8px 8px;
-  border-radius:7px;background:rgba(5,9,14,.985);
-  border:1px solid rgba(255,255,255,.18);
-  box-shadow:0 12px 35px rgba(0,0,0,.55);
-  z-index:50;opacity:0;
-}
-.event-pop.show{
-  display:grid;
-  animation:eventIn .3s cubic-bezier(.2,.8,.2,1) forwards,
-            eventOut .35s ease 4.4s forwards;
-}
-@keyframes eventIn{to{opacity:1;transform:translate(-50%,0) scale(1)}}
-@keyframes eventOut{to{opacity:0;transform:translate(-50%,-10px) scale(.98)}}
-.event-icon{
-  width:38px;height:38px;border-radius:6px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:19px;font-weight:900;background:#fff;color:#080b10;
-}
-.event-pop.foul .event-icon{background:#ffd166}
-.event-pop.score2 .event-icon{background:#68e58d}
-.event-pop.score3 .event-icon{background:#68b5ff}
-.event-pop.ft .event-icon{background:#d4b3ff}
-.event-pop .event-type{
-  font-size:8px;font-weight:900;letter-spacing:.12em;
-  color:#9ea8b4;margin-bottom:1px;
-}
-.event-pop .event-player{font-size:16px;font-weight:900}
-.event-pop .event-detail{font-size:8px;color:#9ea8b4;margin-top:2px}
-.event-pop .event-score{
-  font-size:24px;font-weight:900;font-variant-numeric:tabular-nums;
-}
 button{
   border:0;background:#202938;color:#fff;padding:6px 9px;
   border-radius:5px;cursor:pointer;
@@ -348,7 +310,6 @@ button{
   .foulballs{width:56px;height:11px;top:2px;gap:1px}
   .foulball{width:9px;height:9px;min-width:9px;min-height:9px;flex-basis:9px}
   .score{font-size:38px}
-  .event-pop{min-width:0;width:92vw}
 }
 </style>
 </head>
@@ -386,14 +347,6 @@ button{
   <div id="quarters" class="quarters"></div>
   <div id="latest" class="latest"><b>LIVE</b>&nbsp; Odotetaan otteludataa…</div>
 </div>
-<div id="eventPop" class="event-pop">
-  <div id="eventIcon" class="event-icon">+</div>
-  <div>
-    <div id="eventType" class="event-type">TAPAHTUMA</div>
-    <div id="eventPlayer" class="event-player">–</div>
-    <div id="eventDetail" class="event-detail"></div>
-  </div>
-  <div id="eventScore" class="event-score">–</div>
 </div>
 <pre id="raw"></pre>
 <div id="error"></div>
@@ -414,9 +367,14 @@ const ACCEPT_VALUE="json/df8e84j9xtdz269euy3h";
 let lastOk=0;
 let previousEvents=new Set();
 let firstEventRender=true;
-let popupTimer=null;
 let previousFoulsA=null;
 let previousFoulsB=null;
+
+// URL-parametri delay määrittää näytettävän otteludatan viiveen sekunteina.
+// Esim. ?delay=7 näyttää dataa noin 7 sekuntia jäljessä. Oletus 0 s.
+const delayParam = Number(new URLSearchParams(location.search).get("delay") || 0);
+const DISPLAY_DELAY_MS = (Number.isFinite(delayParam) ? Math.max(0, Math.min(300, delayParam)) : 0) * 1000;
+const delayedSnapshots = [];
 
 const $=id=>document.getElementById(id);
 
@@ -528,36 +486,6 @@ function eventLabel(e,type){
   return eventName(e);
 }
 
-function showEventPopup(e){
-  const type=classifyEvent(e);
-  if(type==="other") return;
-
-  const pop=$("eventPop");
-  const icon=$("eventIcon");
-  const player=$("eventPlayer");
-  const detail=$("eventDetail");
-  const score=$("eventScore");
-
-  pop.classList.remove("show","foul","score2","score3","ft");
-  void pop.offsetWidth;
-  pop.classList.add("show",type);
-
-  icon.textContent=type==="foul"?"!":type==="score3"?"3":type==="ft"?"1":"2";
-  $("eventType").textContent=eventLabel(e,type);
-  player.textContent=e.player_name
-    ? "#"+(e.shirt_number||"")+" "+e.player_name
-    : (e.kotivieras==="koti" ? $("homeName").textContent : $("awayName").textContent);
-
-  detail.textContent=(e.time||"")+
-    (e.kotivieras ? " • "+(e.kotivieras==="koti"?$("homeName").textContent:$("awayName").textContent) : "");
-
-  score.textContent=(e.s_A!==undefined&&e.s_B!==undefined)?e.s_A+" – "+e.s_B:"";
-
-  clearTimeout(popupTimer);
-  popupTimer=setTimeout(()=>{
-    pop.classList.remove("show");
-  },4800);
-}
 
 function renderFoulBalls(targetId,count,previousCount){
   const el=$(targetId);
@@ -687,9 +615,6 @@ function renderLatest(events){
  ));
 
  // Show the event only when it is genuinely new.
- if(!firstEventRender && !previousEvents.has(signature)){
-   showEventPopup(e);
- }
 
  previousEvents=new Set(useful.slice(-30).map(x=>String(
    x.event_id||((x.time||"")+"|"+(x.code||"")+"|"+(x.player_id||"")+"|"+(x.s_A??"")+"|"+(x.s_B??""))
@@ -724,7 +649,26 @@ function toggleRaw(){
 
 async function poll(){
  try{
-   render(await getMatch());
+   const data = await getMatch();
+   const fetchedAt = Date.now();
+   delayedSnapshots.push({fetchedAt, data});
+
+   // Säilytä vain viiveen kannalta tarpeelliset näytteet ja pieni varmuusvara.
+   const keepAfter = fetchedAt - DISPLAY_DELAY_MS - 5000;
+   while(delayedSnapshots.length && delayedSnapshots[0].fetchedAt < keepAfter){
+     delayedSnapshots.shift();
+   }
+
+   const displayBefore = Date.now() - DISPLAY_DELAY_MS;
+   let ready = null;
+   for(let i=delayedSnapshots.length-1;i>=0;i--){
+     if(delayedSnapshots[i].fetchedAt <= displayBefore){
+       ready = delayedSnapshots[i];
+       break;
+     }
+   }
+
+   if(ready) render(ready.data);
  }catch(e){
    const age=lastOk?Math.round((Date.now()-lastOk)/1000):null;
    $("error").textContent="API-yhteys katkesi"+(age!==null?" • viimeisin tieto "+age+" s sitten":"")+" • "+e.message;
