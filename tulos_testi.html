@@ -571,7 +571,7 @@ function render(d){
  }
  $("quarters").innerHTML=q;
 
- renderLatest(Array.isArray(m.events)?m.events:[]);
+ // Tapahtumanäyttö on poistettu tästä versiosta; älä päivitä puuttuvaa #latest-elementtiä.
  $("raw").textContent=JSON.stringify(d,null,2);
 
  lastOk=Date.now();
