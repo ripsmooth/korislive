@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Koripallo – pelaajatilastot sivuille</title>
+<style>
+:root{
+  --navy:#07101a; --navy2:#0c1825; --panel:#0a1420;
+  --line:rgba(255,255,255,.19); --muted:#aeb8c4;
+  --accent:#ffd23f; --green:#6fe08f; --red:#ff3038;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:#fff;
+  font-family:Arial,Helvetica,sans-serif}
+body{position:relative}
+.panels{position:absolute;inset:0;pointer-events:none}
+.team-panel{position:absolute;top:50%;transform:translateY(-50%);width:min(27vw,390px);max-height:88vh;overflow:hidden;background:linear-gradient(180deg,rgba(12,24,37,.97),rgba(7,16,26,.97));
+  border:1px solid rgba(255,255,255,.28);box-shadow:0 8px 25px rgba(0,0,0,.45);border-radius:3px}
+.team-panel:first-child{right:calc(50% + 225px)}
+.team-panel:last-child{left:calc(50% + 225px)}
+.team-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px 9px;
+  background:linear-gradient(90deg,#13283b,#09131e);border-bottom:2px solid var(--accent)}
+.team-head .name{font-size:clamp(14px,1.25vw,22px);font-weight:900;line-height:1.05;overflow:hidden;text-overflow:ellipsis}
+.team-head .side{font-size:9px;letter-spacing:.12em;color:var(--accent);font-weight:900;white-space:nowrap}
+.table-wrap{max-height:calc(88vh - 50px);overflow:hidden}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+thead th{padding:6px 7px;color:var(--muted);font-size:clamp(9px,.65vw,11px);letter-spacing:.05em;text-align:right;background:rgba(0,0,0,.24)}
+thead th:first-child{text-align:left}
+tbody td{padding:7px 7px;border-top:1px solid rgba(255,255,255,.09);font-size:clamp(11px,.82vw,14px);font-weight:700;font-variant-numeric:tabular-nums}
+tbody tr:nth-child(even){background:rgba(255,255,255,.035)}
+tbody td.num{text-align:right}
+tbody td.points{color:var(--accent);font-weight:900}
+tbody td.fouls{color:#fff}
+.player{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shirt{display:inline-block;min-width:24px;color:var(--muted);font-size:.9em;font-weight:800}
+.empty{padding:14px 10px;color:var(--muted);font-size:12px;text-align:center}
+#status{position:absolute;left:50%;top:10px;transform:translateX(-50%);max-width:80vw;padding:7px 12px;
+  border-radius:5px;background:rgba(50,19,24,.96);color:#ffb3b3;font-weight:800;font-size:12px;text-align:center;display:none}
+#status.ok{background:rgba(7,16,26,.82);color:var(--muted);font-size:10px;font-weight:600}
+@media(max-width:900px){
+ .team-panel{width:30vw}
+ .team-panel:first-child{right:calc(50% + 225px)}
+ .team-panel:last-child{left:calc(50% + 225px)}
+ tbody td{padding:6px 4px}
+ .team-head{padding:8px}
+}
+@media(max-width:600px){
+ .team-panel{width:calc(50vw - 225px);min-width:125px;max-height:78vh}
+ .team-panel:first-child{right:calc(50% + 225px)}
+ .team-panel:last-child{left:calc(50% + 225px)}
+ .table-wrap{max-height:calc(78vh - 44px)}
+ tbody td{padding:5px 3px;font-size:10px}
+ .team-head .name{font-size:13px}
+}
+</style>
+</head>
+<body>
+<div class="panels">
+  <section class="team-panel" aria-label="Kotijoukkueen pelaajatilastot">
+    <div class="team-head"><div class="name" id="homeTitle">KOTIJOUkkue</div><div class="side">KOTI</div></div>
+    <div class="table-wrap"><table>
+      <colgroup><col style="width:66%"><col style="width:17%"><col style="width:17%"></colgroup>
+      <thead><tr><th>PELAAJA</th><th>VIRH.</th><th>PIST.</th></tr></thead>
+      <tbody id="homeRows"><tr><td colspan="3" class="empty">Haetaan ottelutietoja…</td></tr></tbody>
+    </table></div>
+  </section>
+  <section class="team-panel" aria-label="Vierasjoukkueen pelaajatilastot">
+    <div class="team-head"><div class="name" id="awayTitle">VIERASJOUKKUE</div><div class="side">VIERAS</div></div>
+    <div class="table-wrap"><table>
+      <colgroup><col style="width:66%"><col style="width:17%"><col style="width:17%"></colgroup>
+      <thead><tr><th>PELAAJA</th><th>VIRH.</th><th>PIST.</th></tr></thead>
+      <tbody id="awayRows"><tr><td colspan="3" class="empty">Haetaan ottelutietoja…</td></tr></tbody>
+    </table></div>
+  </section>
+</div>
+<div id="status"></div>
+<script>
+const API="https://koripallo-api.torneopal.net/taso/rest/";
+const ACCEPT_VALUE="json/df8e84j9xtdz269euy3h";
+const params=new URLSearchParams(location.search);
+let MATCH_ID=params.get("match")||"1005854";
+let busy=false;
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function rootOf(d){return d?.match||d?.data?.match||d?.data||d||{}}
+function isFoul(e){
+ const c=String(e?.code||"").toLowerCase(), d=String(e?.description||e?.code_fi||"").toLowerCase();
+ return c==="virhe"||d.includes("virhe");
+}
+function pointsFor(e){
+ const c=String(e?.code||"").toLowerCase();
+ const d=String(e?.description||e?.code_fi||"").toLowerCase();
+ if(c!=="maali" && !c.includes("vapaa") && !c.includes("rangaistus") && !d.includes("vapaaheitto")) return 0;
+ if(d.includes("3 ")||d.includes("3p")||d.includes("kolmen")) return 3;
+ if(d.includes("vap")||d.includes("ft")||d.includes("1 ")||c.includes("vapaa")||c.includes("rangaistus")) return 1;
+ return 2;
+}
+function teamSide(e){
+ const side=String(e?.kotivieras||e?.home_away||e?.team_side||"").toLowerCase();
+ if(["koti","home","a","team_a"].includes(side)) return "home";
+ if(["vieras","away","b","team_b"].includes(side)) return "away";
+ // Some feeds identify the team using team_id instead.
+ return "";
+}
+function playerKey(e){
+ const id=e?.player_id;
+ const name=String(e?.player_name||e?.name||"").trim();
+ if(!name && id==null) return "";
+ return id!=null && String(id)!=="" ? "id:"+id : "name:"+name.toLowerCase();
+}
+function getEvents(m){
+ if(Array.isArray(m.events)) return m.events;
+ if(Array.isArray(m.match_events)) return m.match_events;
+ if(Array.isArray(m.event_list)) return m.event_list;
+ return [];
+}
+function addLine(map,e){
+ const key=playerKey(e); if(!key) return;
+ if(!map.has(key)) map.set(key,{id:e.player_id??"",name:String(e.player_name||e.name||"Tuntematon pelaaja").trim(),
+   number:String(e.shirt_number??e.number??"").trim(),points:0,fouls:0});
+ const p=map.get(key);
+ if(!p.number && e.shirt_number!=null) p.number=String(e.shirt_number);
+ p.points+=pointsFor(e);
+ if(isFoul(e)) p.fouls++;
+}
+function renderRows(id,map){
+ const rows=[...map.values()].sort((a,b)=>(Number(a.number)||999)-(Number(b.number)||999)||a.name.localeCompare(b.name,"fi"));
+ if(!rows.length){
+   $(id).innerHTML='<tr><td colspan="3" class="empty">Ei pelaajatietoja tapahtumissa</td></tr>';return;
+ }
+ $(id).innerHTML=rows.map(p=>`<tr><td class="player"><span class="shirt">${p.number?"#"+esc(p.number):""}</span> ${esc(p.name)}</td><td class="num fouls">${p.fouls}</td><td class="num points">${p.points}</td></tr>`).join("");
+}
+function eventTeamId(e){
+ return String(e?.team_id??e?.club_id??e?.team??"");
+}
+async function poll(){
+ if(busy)return;busy=true;
+ try{
+  const url=API+"getMatch?match_id="+encodeURIComponent(MATCH_ID)+"&timeStamp="+Date.now();
+  const r=await fetch(url,{cache:"no-store",headers:{Accept:ACCEPT_VALUE}});
+  if(!r.ok)throw new Error("getMatch HTTP "+r.status);
+  const data=await r.json();
+  if(data?.call?.status==="error")throw new Error(data.call.error||"Rajapintavirhe");
+  const m=rootOf(data), events=getEvents(m);
+  $("homeTitle").textContent=m.team_A_name||"KOTIJOUKKUE";
+  $("awayTitle").textContent=m.team_B_name||"VIERASJOUKKUE";
+  const home=new Map(),away=new Map();
+  const teamA=String(m.team_A_id??""),teamB=String(m.team_B_id??"");
+  for(const e of events){
+   let side=teamSide(e);
+   if(!side){
+    const tid=eventTeamId(e);
+    if(tid && teamA && tid===teamA)side="home";
+    else if(tid && teamB && tid===teamB)side="away";
+   }
+   if(side==="home")addLine(home,e);
+   if(side==="away")addLine(away,e);
+  }
+  renderRows("homeRows",home);renderRows("awayRows",away);
+  $("status").style.display="none";
+  // No roster entries are invented: players without events may not be included by getMatch.
+ }catch(e){
+  $("status").textContent="Tilastojen haku epäonnistui: "+e.message;
+  $("status").style.display="block";
+ }finally{busy=false}
+}
+poll();setInterval(poll,3000);
+</script>
+</body>
+</html>
