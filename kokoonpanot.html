@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Basket – kokoonpanot</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;min-height:100%;font-family:Arial,Helvetica,sans-serif;background:transparent;color:#fff}
+body{padding:12px}
+.wrap{--scale:1;width:100%;max-width:1400px;margin:0 auto;transform:scale(var(--scale));transform-origin:top center}
+.title{text-align:center;font-weight:900;font-size:28px;letter-spacing:.6px;margin:0 0 12px;text-shadow:0 2px 5px #000}
+.teams{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+.card{background:rgba(8,12,18,.96);border:2px solid #344052;border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.35)}
+.head{display:grid;grid-template-columns:56px 1fr;align-items:center;gap:10px;padding:12px 16px;background:#111a25;border-bottom:1px solid #344052}
+.logo{width:46px;height:46px;object-fit:contain;display:block}
+.team{font-size:22px;font-weight:900}
+.sub{font-size:11px;color:#aeb8c5;font-weight:700;letter-spacing:.12em;margin-top:3px}
+.table{width:100%;border-collapse:collapse;table-layout:fixed}
+.table th,.table td{padding:8px 10px;border-bottom:1px solid #2b3543}
+.table th{font-size:12px;color:#aeb8c5;background:#18212d;text-align:left}
+.table th:first-child,.table td:first-child{width:62px;text-align:center}
+.table td{font-size:16px;font-weight:700}
+.table td:first-child{color:#ffd23f;font-size:17px;font-weight:900;font-variant-numeric:tabular-nums}
+.table td:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.table tr:nth-child(even){background:rgba(255,255,255,.035)}
+.empty{padding:16px!important;text-align:center!important;color:#aeb8c5!important;font-size:13px!important;font-weight:600!important}
+.foot{padding:8px 12px;background:#101822;color:#9eabb9;font-size:11px;text-align:right}
+.status{position:fixed;left:12px;bottom:12px;background:rgba(0,0,0,.82);padding:6px 9px;border-radius:6px;font:12px Arial;color:#ffd23f;display:none}
+@media(max-width:800px){.teams{grid-template-columns:1fr}.title{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">KOKOONPANOT</div>
+  <div class="teams">
+    <section class="card">
+      <div class="head"><img id="homeLogo" class="logo" alt=""><div><div id="homeName" class="team">KOTIJOUKKUE</div><div class="sub">KOTI</div></div></div>
+      <table class="table"><thead><tr><th>#</th><th>PELAAJA</th></tr></thead><tbody id="homeRows"><tr><td colspan="2" class="empty">Haetaan kokoonpanoa…</td></tr></tbody></table>
+      <div class="foot" id="homeCount"></div>
+    </section>
+    <section class="card">
+      <div class="head"><img id="awayLogo" class="logo" alt=""><div><div id="awayName" class="team">VIERASJOUKKUE</div><div class="sub">VIERAS</div></div></div>
+      <table class="table"><thead><tr><th>#</th><th>PELAAJA</th></tr></thead><tbody id="awayRows"><tr><td colspan="2" class="empty">Haetaan kokoonpanoa…</td></tr></tbody></table>
+      <div class="foot" id="awayCount"></div>
+    </section>
+  </div>
+</div>
+<div id="status" class="status"></div>
+<script>
+const API='https://koripallo-api.torneopal.net/taso/rest/';
+const ACCEPT='json/df8e84j9xtdz269euy3h';
+let MATCH_ID='1012550';
+const params=new URLSearchParams(location.search);
+if(/^\d+$/.test(params.get('match')||''))MATCH_ID=params.get('match');
+const rawScale=params.get('scale');
+const scaleValue=rawScale===null||rawScale.trim()===''?100:Number(rawScale);
+const scale=Number.isFinite(scaleValue)?Math.max(25,Math.min(300,scaleValue))/100:1;
+document.querySelector('.wrap').style.setProperty('--scale',scale);
+const $=id=>document.getElementById(id);
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function showError(s){$('status').textContent=s;$('status').style.display='block';}
+async function getJson(url){
+ const r=await fetch(url+'&timeStamp='+Date.now(),{cache:'no-store',headers:{Accept:ACCEPT}});
+ if(!r.ok)throw Error('API HTTP '+r.status);
+ const d=await r.json();
+ if(d?.call?.status==='error')throw Error(d.call.error||'API-virhe');
+ return d;
+}
+function unwrapTeam(d){return d?.team||d?.data?.team||d?.data||d||{};}
+function playerList(teamData){
+ const t=unwrapTeam(teamData);
+ let list=t.players||t.roster||t.team_players||t.lineup||[];
+ if(!Array.isArray(list)&&list&&typeof list==='object')list=Object.values(list);
+ if(!Array.isArray(list))return [];
+ return list.map(p=>({
+   number:p.shirt_number??p.player_number??p.number??p.shirt??'',
+   name:p.player_name||p.name||[p.first_name,p.last_name].filter(Boolean).join(' ')||p.full_name||''
+ })).filter(p=>p.name).sort((a,b)=>{
+   const an=String(a.number).trim(),bn=String(b.number).trim();
+   const av=an===''?Number.POSITIVE_INFINITY:Number(an),bv=bn===''?Number.POSITIVE_INFINITY:Number(bn);
+   return av-bv||an.localeCompare(bn,'fi')||a.name.localeCompare(b.name,'fi');
+ });
+}
+function renderRows(id,countId,players){
+ $(id).innerHTML=players.length?players.map(p=>`<tr><td>${p.number===''?'–':esc(p.number)}</td><td>${esc(p.name)}</td></tr>`).join(''):'<tr><td colspan="2" class="empty">Kokoonpanoa ei ole saatavilla</td></tr>';
+ $(countId).textContent=players.length?`${players.length} pelaajaa`:'';
+}
+async function load(){
+ try{
+   const d=await getJson(API+'getMatch?match_id='+encodeURIComponent(MATCH_ID));
+   const m=d.match||d?.data?.match||d?.data||d||{};
+   $('homeName').textContent=m.team_A_name||'KOTIJOUKKUE';
+   $('awayName').textContent=m.team_B_name||'VIERASJOUKKUE';
+   if(m.club_A_crest)$('homeLogo').src=m.club_A_crest;
+   if(m.club_B_crest_dark_bg||m.club_B_crest)$('awayLogo').src=m.club_B_crest_dark_bg||m.club_B_crest;
+   if(!m.team_A_id||!m.team_B_id)throw Error('Ottelun joukkueiden tunnisteita ei löytynyt.');
+   const common='&competition_id='+encodeURIComponent(m.competition_id||'')+'&category_id='+encodeURIComponent(m.category_id||'');
+   const [a,b]=await Promise.all([
+     getJson(API+'getTeam?team_id='+encodeURIComponent(m.team_A_id)+common),
+     getJson(API+'getTeam?team_id='+encodeURIComponent(m.team_B_id)+common)
+   ]);
+   const home=playerList(a),away=playerList(b);
+   renderRows('homeRows','homeCount',home);
+   renderRows('awayRows','awayCount',away);
+   $('status').style.display='none';
+ }catch(e){
+   showError(e.message+' — kokoonpanot eivät päivittyneet');
+   if($('homeRows').textContent.includes('Haetaan'))renderRows('homeRows','homeCount',[]);
+   if($('awayRows').textContent.includes('Haetaan'))renderRows('awayRows','awayCount',[]);
+ }
+}
+load();
+setInterval(load,30000);
+</script>
+</body>
+</html>
