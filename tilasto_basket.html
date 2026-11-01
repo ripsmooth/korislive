@@ -17,72 +17,93 @@
   </div>
 </div><div id="status" class="status"></div>
 <script>
-const API='https://embed-api.eui.connect.sportradar.com/v1/embed/322/fixture_detail?state=';
+const API='https://embed-api.eui.connect.sportradar.com/v1/embed/322/fixture_detail';
 const DEFAULT_STATE='eJwljDEKwzAMAL8SNFcQKSKWunftHyLbgkDpYk8t_XsRGe847gsD7guINhZ1QvfVkSgIdbWK7NZDCpMXgtsCr4z7Gx_PpE_SmMc8xzzrSBWpNrGqxSxv7brZLoFh3XduB9dN4fcHiH4fvw';
 const params=new URLSearchParams(location.search);
 const STATE=params.get('state')||DEFAULT_STATE;
-const $=id=>document.getElementById(id);
-function applyScale(){
- const raw=params.get('scale');
- const value=raw===null||raw.trim()===''?100:Number(raw);
- const scale=Number.isFinite(value)?Math.max(25,Math.min(300,value))/100:1;
- document.querySelector('.wrap')?.style.setProperty('--scale',scale);
+
+function applyUrlParams(){
+  const rawScale=params.get('scale');
+  const value=rawScale===null||rawScale.trim()===''?100:Number(rawScale);
+  const scale=Number.isFinite(value)?Math.max(25,Math.min(300,value))/100:1;
+  document.querySelector('.wrap')?.style.setProperty('--scale',scale);
 }
+applyUrlParams();
+
+const $=id=>document.getElementById(id);
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function showError(s){$('status').textContent=s;$('status').style.display='block';}
+
 async function getFixture(){
- const response=await fetch(API+encodeURIComponent(STATE)+'&_='+Date.now(),{cache:'no-store'});
- if(!response.ok)throw Error('Sportradar API HTTP '+response.status);
- const data=await response.json();
- if(data?.error||data?.errors)throw Error('Sportradar palautti virheen');
- return data?.data||data;
+  // Käytetään alkuperäistä Sportradar-URL:n query-muotoa täsmälleen:
+  // ei ylimääräistä cache-buster-parametria eikä state-arvon uudelleenkoodausta.
+  const url=API+'?state='+STATE;
+  const response=await fetch(url,{cache:'no-store',headers:{'Accept':'application/json'}});
+  const body=await response.text();
+  if(!response.ok){
+    const detail=body.slice(0,500).replace(/\s+/g,' ').trim();
+    throw Error('Sportradar HTTP '+response.status+(detail?' — '+detail:''));
+  }
+  let data;
+  try{data=JSON.parse(body);}catch{throw Error('Sportradar palautti virheellisen JSON-vastauksen: '+body.slice(0,250));}
+  if(data?.error||data?.errors)throw Error('Sportradar API-virhe: '+JSON.stringify(data.error||data.errors).slice(0,300));
+  return data?.data||data;
 }
+
 function teamRows(side){
- const rows=side?.persons?.[0]?.rows||[];
- return rows.map(p=>{
-   const s=p.statistics||{};
-   return {num:p.bib??'',name:p.personName||'',points:Number(s.points??0),fouls:Number(s.foulsTotal??0),two:Number(s.pointsTwoMade??0),three:Number(s.pointsThreeMade??0)};
- }).filter(p=>p.name).sort((a,b)=>{
-   const an=String(a.num).trim(),bn=String(b.num).trim();
-   const av=an===''?Infinity:Number(an),bv=bn===''?Infinity:Number(bn);
-   return av-bv||an.localeCompare(bn,'fi')||a.name.localeCompare(b.name,'fi');
- });
+  const rows=side?.persons?.[0]?.rows||[];
+  return rows.map(p=>{
+    const s=p.statistics||{};
+    return {
+      num:p.bib??'',
+      name:p.personName||'',
+      points:Number(s.points??0),
+      fouls:Number(s.foulsTotal??0),
+      two:Number(s.pointsTwoMade??0),
+      three:Number(s.pointsThreeMade??0)
+    };
+  }).filter(p=>p.name).sort((a,b)=>{
+    const an=String(a.num).trim(),bn=String(b.num).trim();
+    const av=an===''?Infinity:Number(an),bv=bn===''?Infinity:Number(bn);
+    return av-bv||an.localeCompare(bn,'fi')||a.name.localeCompare(b.name,'fi');
+  });
 }
 function rows(list){
- if(!list.length)return '<tr><td colspan="6">Ei pelaajatietoja</td></tr>';
- return list.map(p=>'<tr><td class="numcol">'+esc(p.num)+'</td><td>'+esc(p.name)+'</td><td>'+p.points+'</td><td>'+p.fouls+'</td><td>'+p.two+'</td><td>'+p.three+'</td></tr>').join('');
+  if(!list.length)return '<tr><td colspan="6">Ei pelaajatietoja</td></tr>';
+  return list.map(p=>'<tr><td class="numcol">'+esc(p.num)+'</td><td>'+esc(p.name)+'</td><td>'+p.points+'</td><td>'+p.fouls+'</td><td>'+p.two+'</td><td>'+p.three+'</td></tr>').join('');
 }
 function periodScores(periods,teamId){
- return (periods||[]).filter(p=>p.periodId!=null).map(p=>{
-   const score=p.teamScore?.[teamId];
-   return score===undefined?null:Number(score);
- }).filter(v=>v!==null).join('-')||'–';
+  return (periods||[]).filter(p=>p.periodId!=null).map(p=>{
+    const score=p.teamScore?.[teamId];
+    return score===undefined?null:Number(score);
+  }).filter(v=>v!==null).join('-')||'–';
 }
 function render(d){
- const f=d.fixture||{}, competitors=f.competitors||[];
- const home=competitors.find(c=>c.isHome)||competitors[0]||{};
- const away=competitors.find(c=>!c.isHome)||competitors[1]||{};
- const base=d.statistics?.data?.base||{};
- const homeStats=base.home||{},awayStats=base.away||{};
- $('homeName').textContent=home.name||'KOTI';
- $('awayName').textContent=away.name||'VIERAS';
- if(home.logo)$('homeLogo').src=home.logo;
- if(away.logo)$('awayLogo').src=away.logo;
- $('homeScore').textContent=home.score??homeStats.entity?.points??'–';
- $('awayScore').textContent=away.score??awayStats.entity?.points??'–';
- $('homeRows').innerHTML=rows(teamRows(homeStats));
- $('awayRows').innerHTML=rows(teamRows(awayStats));
- $('homePeriods').textContent=periodScores(d.periodData,home.entityId);
- $('awayPeriods').textContent=periodScores(d.periodData,away.entityId);
- $('homeTimeouts').textContent='–';
- $('awayTimeouts').textContent='–';
- $('status').style.display='none';
+  const f=d.fixture||{};
+  const competitors=f.competitors||[];
+  const home=competitors.find(c=>c.isHome)||competitors[0]||{};
+  const away=competitors.find(c=>!c.isHome)||competitors[1]||{};
+  const base=d.statistics?.data?.base||{};
+  const homeStats=base.home||{},awayStats=base.away||{};
+
+  $('homeName').textContent=home.name||'KOTI';
+  $('awayName').textContent=away.name||'VIERAS';
+  if(home.logo)$('homeLogo').src=home.logo;
+  if(away.logo)$('awayLogo').src=away.logo;
+  $('homeScore').textContent=home.score??homeStats.entity?.points??'–';
+  $('awayScore').textContent=away.score??awayStats.entity?.points??'–';
+  $('homeRows').innerHTML=rows(teamRows(homeStats));
+  $('awayRows').innerHTML=rows(teamRows(awayStats));
+  $('homePeriods').textContent=periodScores(d.periodData,home.entityId);
+  $('awayPeriods').textContent=periodScores(d.periodData,away.entityId);
+  $('homeTimeouts').textContent='–';
+  $('awayTimeouts').textContent='–';
+  $('status').style.display='none';
 }
 async function poll(){
- try{render(await getFixture());}
- catch(e){showError(e.message+' — tarkista Sportradar-yhteys ja state-parametri');}
- finally{setTimeout(poll,3000);}
+  try{render(await getFixture());}
+  catch(e){showError(e.message);}
+  finally{setTimeout(poll,3000);}
 }
-applyScale();
 poll();
 </script></body></html>
