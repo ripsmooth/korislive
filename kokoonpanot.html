@@ -109,9 +109,17 @@ async function getFixture(){
  if(data?.error||data?.errors)throw Error('Sportradar API-virhe: '+JSON.stringify(data.error||data.errors).slice(0,300));
  return data?.data||data;
 }
+// Muotoilee kokonaan ISOILLA KIRJAIMILLA olevan nimen normaaliksi nimimuodoksi.
+function formatPersonName(value){
+  const name=String(value??'').trim();
+  if(!name || name!==name.toLocaleUpperCase('fi-FI')) return name;
+  return name.toLocaleLowerCase('fi-FI').replace(/(^|[\s\-’'])(\p{L})/gu,
+    (_,separator,letter)=>separator+letter.toLocaleUpperCase('fi-FI'));
+}
+
 function playerList(side){
- const players=side?.persons?.[0]?.rows||[];
- return players.map(p=>({number:p.bib??'',name:p.personName||''})).filter(p=>p.name).sort((a,b)=>{
+  const players=side?.persons?.[0]?.rows||[];
+  return players.map(p=>({number:p.bib??'',name:formatPersonName(p.personName||'')})).filter(p=>p.name).sort((a,b)=>{
   const an=String(a.number).trim(),bn=String(b.number).trim();
   const av=an===''?Infinity:Number(an),bv=bn===''?Infinity:Number(bn);
   return av-bv||an.localeCompare(bn,'fi')||a.name.localeCompare(b.name,'fi');
