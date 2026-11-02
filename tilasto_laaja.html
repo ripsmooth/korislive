@@ -125,11 +125,20 @@ function fmtMinutes(v){
   const total=Math.round((Number(m[1]||0)*3600)+(Number(m[2]||0)*60)+Number(m[3]||0));
   return Math.floor(total/60)+':'+String(total%60).padStart(2,'0');
 }
+// Muotoilee kokonaan ISOILLA KIRJAIMILLA olevan pelaajanimen normaaliksi
+// nimimuodoksi. Jo valmiiksi oikein kirjoitettuihin nimiin ei kosketa.
+function formatPersonName(value){
+  const name=String(value??'').trim();
+  if(!name || name!==name.toLocaleUpperCase('fi-FI')) return name;
+  return name.toLocaleLowerCase('fi-FI').replace(/(^|[\s\-’'])(\p{L})/gu,
+    (_,separator,letter)=>separator+letter.toLocaleUpperCase('fi-FI'));
+}
+
 function teamRows(side){
   const players=side?.persons?.[0]?.rows||[];
   return players.map(p=>{
     const s=p.statistics||{};
-    return {num:p.bib??'',name:p.personName||'',minutes:fmtMinutes(s.minutes),points:s.points??0,fouls:s.foulsTotal??0,
+    return {num:p.bib??'',name:formatPersonName(p.personName||''),minutes:fmtMinutes(s.minutes),points:s.points??0,fouls:s.foulsTotal??0,
       two:(s.pointsTwoMade??0)+'/'+(s.pointsTwoAttempted??0),twoPct:pct(s.pointsTwoPercentage),three:(s.pointsThreeMade??0)+'/'+(s.pointsThreeAttempted??0),threePct:pct(s.pointsThreePercentage),
       ft:(s.freeThrowsMade??0)+'/'+(s.freeThrowsAttempted??0),ftPct:pct(s.freeThrowsPercentage)};
   }).filter(p=>p.name).sort((a,b)=>{
