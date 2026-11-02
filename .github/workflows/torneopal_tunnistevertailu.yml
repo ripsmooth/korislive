@@ -6,7 +6,7 @@ on:
       match_id:
         description: "Ottelunumero"
         required: true
-        default: "1015965"
+        default: "1007096"
         type: string
       match_date:
         description: "Ottelupäivä muodossa YYYY-MM-DD"
