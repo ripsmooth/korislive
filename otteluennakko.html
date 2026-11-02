@@ -78,8 +78,8 @@ function renderStats(team,groups){
  let rows=baseRows.map(r=>({...r,...(shootingByName.get(normName(r.name))||{})}));
  const wanted=[
   ['O',['games']],['PPO',['pointsPerGame']],['MPO',['minutesPerGame']],
-  ['2P%',['pointsTwoPercentage']],['3P%',['pointsThreePercentage']],['FT%',['freeThrowsPercentage']],
-  ['LP',['reboundsPerGame','totalReboundsPerGame']],['T',['stealsPerGame']],['V',['turnoversPerGame']]
+  ['2P%',['pointsTwoPercentage']],['3P%',['pointsThreePercentage']],['VH%',['freeThrowsPercentage']],
+  ['LP',['reboundsPerGame','totalReboundsPerGame']],['R',['stealsPerGame']],['V',['foulsPerGame']]
  ];
  let cols=wanted.map(([label,keys])=>{
    let key=keys.find(k=>averages?.headers?.some(h=>h.key===k)||shooting?.headers?.some(h=>h.key===k));
