@@ -1,0 +1,69 @@
+name: TorneoPal-yhteystesti (erillinen, vain luku)
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_date:
+        description: "Testattava päivä muodossa YYYY-MM-DD (tyhjä = tänään)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Testaa TorneoPal getMatches -yhteys
+        env:
+          TORNEOPAL_ACCEPT: ${{ secrets.TORNEOPAL_ACCEPT }}
+          INPUT_DATE: ${{ inputs.test_date }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TORNEOPAL_ACCEPT:-}" ]; then
+            echo "::error::Repository secret TORNEOPAL_ACCEPT puuttuu."
+            exit 1
+          fi
+
+          if [ -n "${INPUT_DATE:-}" ]; then
+            TEST_DATE="$INPUT_DATE"
+          else
+            TEST_DATE="$(TZ=Europe/Helsinki date +%F)"
+          fi
+
+          echo "Testataan TorneoPal getMatches."
+          echo "Päivä: $TEST_DATE"
+          echo "API-avain on käytössä salaisuutena; sitä ei tulosteta."
+
+          HTTP_CODE="$(curl --silent --show-error \
+            --get 'https://koripallo-api.torneopal.net/taso/rest/getMatches' \
+            --data-urlencode "date=${TEST_DATE}" \
+            --data-urlencode 'hash=5a5ba20edefa33212e8324d576ebe58b9659209235e99c421dcb888be579a236' \
+            -H "Accept: ${TORNEOPAL_ACCEPT}" \
+            -H 'Referer: https://tulospalvelu.basket.fi/' \
+            -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36' \
+            -H 'sec-ch-ua-platform: "Windows"' \
+            -H 'sec-ch-ua: "Not:A-Brand";v="8", "Chromium";v="156", "Google Chrome";v="156"' \
+            -H 'sec-ch-ua-mobile: ?0' \
+            -o response.json \
+            -w '%{http_code}')"
+
+          echo "HTTP-status: $HTTP_CODE"
+          echo "Vastauksen alku (enintään 1500 merkkiä):"
+          head -c 1500 response.json || true
+          echo
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::TorneoPal palautti HTTP $HTTP_CODE."
+            exit 1
+          fi
+
+          if ! jq -e '(.call.status // "ok") == "ok"' response.json >/dev/null; then
+            echo "::error::HTTP 200, mutta TorneoPalin JSON-vastauksessa on API-virhe."
+            jq '.call' response.json || true
+            exit 1
+          fi
+
+          echo "Yhteystesti onnistui: HTTP 200 ja API-vastaus OK."
