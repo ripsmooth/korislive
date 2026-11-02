@@ -59,7 +59,7 @@ function fmt(v,key){
  if(v===null||v===undefined||v==='')return '–';
  if(key==='minutesPerGame' && typeof v==='string'){
    // Sportradar antaa peliajan usein ISO 8601 -kestona, esim. PT18M47S.
-   const m=v.match(/^PT(?:(\\d+(?:\\.\\d+)?)H)?(?:(\\d+(?:\\.\\d+)?)M)?(?:(\\d+(?:\\.\\d+)?)S)?$/i);
+   const m=v.match(/^PT(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?$/i);
    if(m){
      const totalSeconds=Math.round((Number(m[1]||0)*3600)+(Number(m[2]||0)*60)+Number(m[3]||0));
      const minutes=Math.floor(totalSeconds/60), seconds=totalSeconds%60;
@@ -77,7 +77,7 @@ function renderStats(team,groups){
  let shootingByName=new Map(shootingRows.map(r=>[normName(r.name),r]));
  let rows=baseRows.map(r=>({...r,...(shootingByName.get(normName(r.name))||{})}));
  const wanted=[
-  ['O',['games']],['PPO',['pointsPerGame']],['MPG',['minutesPerGame']],
+  ['O',['games']],['PPO',['pointsPerGame']],['MPO',['minutesPerGame']],
   ['2P%',['pointsTwoPercentage']],['3P%',['pointsThreePercentage']],['FT%',['freeThrowsPercentage']],
   ['LP',['reboundsPerGame','totalReboundsPerGame']],['T',['stealsPerGame']],['V',['turnoversPerGame']]
  ];
