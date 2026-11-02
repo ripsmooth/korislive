@@ -83,14 +83,38 @@ async function fetchJson(url,headers={}){
 function renderTeam(team,groups,mode,sortKey){
  const g=findGroup(groups,mode);
  if(!g)return `<section class="card"><div class="head"><div class="team">${escapeHtml(team)}</div></div><div class="empty">TÄLLE TILASTORYHMÄLLE EI LÖYTYNYT TIETOJA</div></section>`;
- const rows=groupRows(g).filter(r=>norm(r.team)===norm(team)).sort((a,b)=>{
+ const shooting=findGroup(groups,'shootingstatistics');
+ const baseRows=groupRows(g).filter(r=>norm(r.team)===norm(team));
+ const shootingRows=shooting?groupRows(shooting).filter(r=>norm(r.team)===norm(team)): [];
+ const shootingByName=new Map(shootingRows.map(r=>[norm(r.name),r]));
+ const rows=baseRows.map(r=>({...r,...(shootingByName.get(norm(r.name))||{})})).sort((a,b)=>{
    if(sortKey==='name')return a.name.localeCompare(b.name,'fi');
    return (Number(b[sortKey])||0)-(Number(a[sortKey])||0);
  });
  const headers=g.headers||[];
- const columns=headers.map(h=>({key:h.key,label:h.name||h.key}));
+ const shootingKeys=['pointsTwoPercentage','pointsThreePercentage','freeThrowsPercentage'];
+ const ordered=[
+  ['gamesPlayed','O'],
+  ['pointsPerGame','PPO'],
+  ['minutesPerGame','MPO'],
+  ['pointsTwoPercentage','2P%'],
+  ['pointsThreePercentage','3P%'],
+  ['freeThrowsPercentage','VH%'],
+  ['reboundsOffensivePerGame','HL'],
+  ['reboundsDefensivePerGame','PL'],
+  ['reboundsPerGame','LP'],
+  ['assistsPerGame','S'],
+  ['foulsPersonalPerGame','V'],
+  ['turnoversPerGame','M'],
+  ['stealsPerGame','R'],
+  ['blocksPerGame','T'],
+  ['dunksPerGame','TD']
+ ];
+ const allHeaders=[...headers,...(shooting?.headers||[])];
+ const available=new Set(allHeaders.map(h=>h.key));
+ const columns=ordered.filter(([key])=>available.has(key)).map(([key,label])=>({key,label}));
  if(!rows.length)return `<section class="card"><div class="head"><div class="team">${escapeHtml(team)}</div></div><div class="empty">JOUKKUEELLE EI LÖYTYNYT PELAAJARIVEJÄ</div></section>`;
- return `<section class="card"><div class="head"><div class="team">${escapeHtml(team)}</div><div class="count">${rows.length} PELAAJAA</div></div><div class="section-label">KAUDEN KESKIARVOT</div><div class="table-wrap"><table><thead><tr><th>Pelaaja</th>${columns.filter(c=>c.key!=='name'&&c.key!=='team').map(c=>`<th title="${escapeHtml(c.label)}">${escapeHtml(c.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${escapeHtml(r.name)}</td>${columns.filter(c=>c.key!=='name'&&c.key!=='team').map(c=>`<td class="num">${escapeHtml(fmt(r[c.key],c.key))}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>`;
+ return `<section class="card"><div class="head"><div class="team">${escapeHtml(team)}</div><div class="count">${rows.length} PELAAJAA</div></div><div class="section-label">KAUDEN KESKIARVOT · HEITTOTILASTOT</div><div class="table-wrap"><table><thead><tr><th>Pelaaja</th>${columns.filter(c=>c.key!=='name'&&c.key!=='team').map(c=>`<th title="${escapeHtml(c.label)}">${escapeHtml(c.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${escapeHtml(r.name)}</td>${columns.filter(c=>c.key!=='name'&&c.key!=='team').map(c=>`<td class="num">${escapeHtml(fmt(r[c.key],c.key))}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>`;
 }
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 const TP='https://koripallo-api.torneopal.net/taso/rest/getMatches';
