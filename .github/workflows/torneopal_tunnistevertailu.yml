@@ -1,0 +1,103 @@
+name: TorneoPal-tunnistevertailu (erillinen, vain luku)
+
+on:
+  workflow_dispatch:
+    inputs:
+      match_id:
+        description: "Ottelunumero"
+        required: true
+        default: "1015965"
+        type: string
+      match_date:
+        description: "Ottelupäivä muodossa YYYY-MM-DD"
+        required: true
+        default: "2026-11-02"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vertaa TorneoPal-pyyntöjen tunnistustapoja
+        env:
+          TORNEOPAL_ACCEPT: ${{ secrets.TORNEOPAL_ACCEPT }}
+          MATCH_ID: ${{ inputs.match_id }}
+          MATCH_DATE: ${{ inputs.match_date }}
+        shell: bash
+        run: |
+          set -u
+
+          if [ -z "${TORNEOPAL_ACCEPT:-}" ]; then
+            echo "::error::Repository secret TORNEOPAL_ACCEPT puuttuu."
+            exit 1
+          fi
+
+          API='https://koripallo-api.torneopal.net/taso/rest'
+          SEED='ysnyp4h6e9egetkc3s3v'
+          REFERER='https://tulospalvelu.basket.fi/'
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36'
+
+          # Lasketaan SHA-256 täsmälleen samalla merkkijonolla kuin HTML-testisivussa.
+          MATCH_SOURCE="getMatch?${SEED}&match_id=${MATCH_ID}"
+          MATCH_HASH="$(printf '%s' "$MATCH_SOURCE" | sha256sum | awk '{print $1}')"
+
+          MATCHES_SOURCE="getMatches?${SEED}&date=${MATCH_DATE}"
+          MATCHES_HASH="$(printf '%s' "$MATCHES_SOURCE" | sha256sum | awk '{print $1}')"
+
+          run_test() {
+            label="$1"
+            url="$2"
+            out="$3"
+            echo
+            echo "========== $label =========="
+            code="$(curl --silent --show-error --get "$url" \
+              -H "Accept: ${TORNEOPAL_ACCEPT}" \
+              -H "Referer: ${REFERER}" \
+              -H "User-Agent: ${UA}" \
+              -H 'sec-ch-ua-platform: "Windows"' \
+              -H 'sec-ch-ua: "Not:A-Brand";v="8", "Chromium";v="156", "Google Chrome";v="156"' \
+              -H 'sec-ch-ua-mobile: ?0' \
+              -o "$out" -w '%{http_code}' || true)"
+            echo "HTTP-status: ${code}"
+            if [ -s "$out" ]; then
+              echo "Vastauksen alku (enintään 1000 merkkiä):"
+              head -c 1000 "$out"
+              echo
+              if command -v jq >/dev/null 2>&1; then
+                echo "API call -tila:"
+                jq -c '.call // "call-kenttää ei ole"' "$out" 2>/dev/null || true
+              fi
+            else
+              echo "Vastausrunko on tyhjä."
+            fi
+          }
+
+          echo "Ottelu: ${MATCH_ID}"
+          echo "Päivä: ${MATCH_DATE}"
+          echo "Tunnisteita ei tulosteta."
+
+          # 1) Vanhan HTML:n mukainen getMatch ilman hash-parametria.
+          run_test "1. getMatch ilman hash-parametria" \
+            "${API}/getMatch?match_id=${MATCH_ID}&timeStamp=$(date +%s)" \
+            "getmatch_no_hash.txt"
+
+          # 2) Vertailu: getMatch SHA-256-hashilla.
+          run_test "2. getMatch lasketulla SHA-256-hashilla" \
+            "${API}/getMatch?match_id=${MATCH_ID}&hash=${MATCH_HASH}&timeStamp=$(date +%s)" \
+            "getmatch_sha256.txt"
+
+          # 3) getMatches nykyisessä HTML:ssä käytetyllä dynaamisella SHA-256-hashilla.
+          run_test "3. getMatches lasketulla SHA-256-hashilla" \
+            "${API}/getMatches?date=${MATCH_DATE}&hash=${MATCHES_HASH}&timeStamp=$(date +%s)" \
+            "getmatches_sha256.txt"
+
+          # 4) Aiemman GitHub-työnkulun käyttämä kiinteä hash, vain vertailua varten.
+          run_test "4. getMatches aiemmalla kiinteällä hashilla" \
+            "${API}/getMatches?date=${MATCH_DATE}&hash=5a5ba20edefa33212e8324d576ebe58b9659209235e99c421dcb888be579a236&timeStamp=$(date +%s)" \
+            "getmatches_legacy.txt"
+
+          echo
+          echo "Vertailu valmis. Kaikki neljä pyyntöä olivat vain lukevia."
