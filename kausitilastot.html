@@ -28,6 +28,11 @@ tbody tr:hover td{background:#26394b}
 .status{position:fixed;left:12px;bottom:12px;background:rgba(0,0,0,.82);padding:6px 9px;border-radius:6px;font:12px Arial;color:#b8c3cf;display:none;max-width:min(90vw,700px);z-index:5}
 .status.err{display:block;color:#ff9999}
 .empty{padding:24px;text-align:center;color:#aeb8c5;background:rgba(8,12,18,.96);border:2px solid #344052;border-radius:10px;font-size:12px;font-weight:800;letter-spacing:.5px}
+.legend{margin-top:12px;padding:12px 16px;background:rgba(8,12,18,.96);border:2px solid #344052;border-radius:10px;color:#c5ced8}
+.legend-title{font-size:13px;font-weight:800;color:#f2c94c;letter-spacing:.6px;text-transform:uppercase;margin-bottom:9px}
+.legend-items{display:flex;flex-wrap:wrap;gap:7px 18px;font-size:12px;line-height:1.45}
+.legend-item{white-space:normal}
+.legend-item strong{color:#fff;font-weight:800;margin-right:4px}
 .footer{font-size:9px;color:#8493a3;margin-top:8px;text-align:right;text-transform:uppercase;letter-spacing:.5px}
 @media(max-width:800px){.teams{grid-template-columns:1fr}.title{font-size:22px}}
 </style></head><body>
@@ -35,6 +40,26 @@ tbody tr:hover td{background:#26394b}
  <div class="title">JOUKKUEIDEN KAUSITILASTOT</div>
  <div class="meta"><span id="competition">SPORTRADAR · KORIPALLO</span><span id="seasonLabel">KAUSI —</span></div>
  <main id="results" class="teams"><div class="empty">HAETAAN OTTELUN JOUKKUEIDEN KAUSITILASTOJA…</div></main>
+ <section class="legend" aria-label="Tilastojen lyhenteet">
+  <div class="legend-title">Tilastojen lyhenteet</div>
+  <div class="legend-items">
+   <span class="legend-item"><strong>O</strong> Ottelut</span>
+   <span class="legend-item"><strong>PPO</strong> Pisteet per ottelu</span>
+   <span class="legend-item"><strong>MPO</strong> Minuutit per ottelu</span>
+   <span class="legend-item"><strong>2P%</strong> 2 pisteen heittojen onnistumisprosentti</span>
+   <span class="legend-item"><strong>3P%</strong> 3 pisteen heittojen onnistumisprosentti</span>
+   <span class="legend-item"><strong>VH%</strong> Vapaaheittojen onnistumisprosentti</span>
+   <span class="legend-item"><strong>HL</strong> Hyökkäyspään levypallot</span>
+   <span class="legend-item"><strong>PL</strong> Puolustuspään levypallot</span>
+   <span class="legend-item"><strong>LP</strong> Levypallot yhteensä</span>
+   <span class="legend-item"><strong>S</strong> Syötöt per ottelu</span>
+   <span class="legend-item"><strong>V</strong> Virheet per ottelu</span>
+   <span class="legend-item"><strong>M</strong> Menetykset per ottelu</span>
+   <span class="legend-item"><strong>R</strong> Riistot per ottelu</span>
+   <span class="legend-item"><strong>T</strong> Torjunnat per ottelu</span>
+   <span class="legend-item"><strong>TD</strong> Tuplatuplat per ottelu</span>
+  </div>
+ </section>
  <div class="footer">LÄHDE: SPORTRADAR · KAUDEN KESKIARVOT</div>
 </div><div id="status" class="status"></div>
 <script>
