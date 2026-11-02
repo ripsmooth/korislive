@@ -20,13 +20,15 @@
 const graphics=[
  {name:'Kuntopuntari',file:'kuntopuntari.html',params:['match','scale','offsetX','offsetY'],scaleMode:'percent'},
  {name:'Sarjataulukko',file:'taulukko.html',params:['match','scale','width','offsetX','offsetY'],scaleMode:'factor'},
- {name:'Tilasto',file:'tilasto.html',params:['match','scale','width','offsetX','offsetY'],scaleMode:'percent'},
+ {name:'Tilasto',file:'vanha_tilasto.html',params:['match','scale','width','offsetX','offsetY'],scaleMode:'percent'},
  {name:'Laajennettu ottelutilasto',file:'tilasto_laaja.html',params:['match','date','scale'],scaleMode:'percent'},
   {name:'Kokoonpanot',file:'kokoonpanot.html',params:['match','date','scale'],scaleMode:'percent'},
   {name:'Tilastot tulostaulun reunoihin',file:'tilastot_tulostaulu.html',params:['match']},
  {name:'Tulostaulu',file:'tulos.html',params:['match','scale','delay'],scaleMode:'percent'},
  {name:'Yksi viimeisin tapahtuma',file:'tulos1.html',params:['match','scale','delay'],scaleMode:'percent'},
- {name:'Kolme viimeisintä tapahtumaa',file:'tulos3.html',params:['match','scale','delay'],scaleMode:'percent'}
+ {name:'Kolme viimeisintä tapahtumaa',file:'tulos3.html',params:['match','scale','delay'],scaleMode:'percent'},
+  {name:'Vanha tilastopalvelu (jos käytössä vain Basket.fi tilastointi)',file:'vanha_tilasto.html',params:['match','scale','width','offsetX','offsetY'],scaleMode:'percent'},
+  {name:'Vanha kokoonpanopalvelu (jos käytössä vain Basket.fi tilastointi)',file:'vanha_kokoonpano.html',params:['match','scale'],scaleMode:'percent'}
 ];
 function getId(raw){let s=raw.trim();if(/^\d+$/.test(s))return s;let m=s.match(/\/match\/(\d+)/i)||s.match(/[?&](?:match_id|match|ottelu)=(\d+)/i);return m?m[1]:''}
 const TP_MATCHES='https://koripallo-api.torneopal.net/taso/rest/getMatches';
