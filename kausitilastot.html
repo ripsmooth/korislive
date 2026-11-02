@@ -201,9 +201,10 @@ async function load(){
   if(!groups.length)throw new Error('Kausitilastoja ei löytynyt Sportradarista.');
   $('competition').textContent=info.competition.toLocaleUpperCase('fi-FI');
   $('seasonLabel').textContent='KAUSI '+date.slice(0,4)+'–'+(Number(date.slice(0,4))+1);
-  const averages=findGroup(groups,'averages')||groups[0];\n  renderGlossary(groups);
+  const averages=findGroup(groups,'averages')||groups[0];
+  renderGlossary(groups);
   $('results').innerHTML=info.teams.slice(0,2).map(t=>renderTeam(t.name,groups,'averages','pointsPerGame')).join('');
-  setStatus('');
+  $('status').style.display='none';
  }catch(e){
   setStatus(e.message||String(e),'err');
   $('results').innerHTML='<div class="empty">KAUSITILASTOJA EI VOITU HAKEA</div>';
