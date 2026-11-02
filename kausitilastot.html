@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Koripallo – kausitilastot (Sportradar)</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;min-height:100%;font-family:Arial,Helvetica,sans-serif;background:transparent;color:#fff}
+body{padding:12px}
+.wrap{--scale:1;width:100%;max-width:1700px;margin:0 auto;transform:scale(var(--scale));transform-origin:top center}
+.title{text-align:center;font-weight:800;font-size:28px;letter-spacing:.5px;margin:0 0 12px;text-shadow:0 2px 5px #000}
+.meta{display:flex;justify-content:space-between;gap:12px;color:#aeb8c5;font-size:11px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;margin:0 2px 10px}
+.teams{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+.card{display:flex;flex-direction:column;background:rgba(8,12,18,.96);border:2px solid #344052;border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.35);min-width:0}
+.head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:#111a25;border-bottom:1px solid #344052}
+.team{font-size:22px;font-weight:800;text-transform:uppercase}
+.count{font-size:11px;color:#aeb8c5;font-weight:800;white-space:nowrap}
+.section-label{padding:8px 12px;background:#18212d;color:#f2c94c;font-size:12px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;border-top:1px solid #344052}
+.table-wrap{width:100%;overflow-x:auto}
+table{width:100%;min-width:760px;border-collapse:collapse;table-layout:auto}
+th,td{padding:7px 6px;border-bottom:1px solid #2b3543;text-align:center;white-space:nowrap}
+th{font-size:10px;line-height:1.15;color:#aeb8c5;background:#18212d;text-transform:uppercase}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;z-index:1;min-width:150px}
+td{font-size:14px;font-weight:700}
+td:first-child{background:#101822;font-weight:700;white-space:normal;overflow-wrap:anywhere}
+tbody tr:nth-child(even) td{background:#141e29}
+tbody tr:nth-child(even) td:first-child{background:#182431}
+tbody tr:hover td{background:#26394b}
+.num{font-variant-numeric:tabular-nums}
+.status{position:fixed;left:12px;bottom:12px;background:rgba(0,0,0,.82);padding:6px 9px;border-radius:6px;font:12px Arial;color:#b8c3cf;display:none;max-width:min(90vw,700px);z-index:5}
+.status.err{display:block;color:#ff9999}
+.empty{padding:24px;text-align:center;color:#aeb8c5;background:rgba(8,12,18,.96);border:2px solid #344052;border-radius:10px;font-size:12px;font-weight:800;letter-spacing:.5px}
+.footer{font-size:9px;color:#8493a3;margin-top:8px;text-align:right;text-transform:uppercase;letter-spacing:.5px}
+@media(max-width:800px){.teams{grid-template-columns:1fr}.title{font-size:22px}}
+</style></head><body>
+<div class="wrap">
+ <div class="title">JOUKKUEIDEN KAUSITILASTOT</div>
+ <div class="meta"><span id="competition">SPORTRADAR · KORIPALLO</span><span id="seasonLabel">KAUSI —</span></div>
+ <main id="results" class="teams"><div class="empty">HAETAAN OTTELUN JOUKKUEIDEN KAUSITILASTOJA…</div></main>
+ <div class="footer">LÄHDE: SPORTRADAR · KAUDEN KESKIARVOT</div>
+</div><div id="status" class="status"></div>
+<script>
+const SR='https://embed-api.eui.connect.sportradar.com/v1/embed/322/';
+const $=id=>document.getElementById(id);
+function setStatus(s,kind=''){ $('status').textContent=s; $('status').className='status '+kind; }
+function norm(s){return String(s||'').trim().toLocaleLowerCase('fi-FI').replace(/\s+/g,' ')}
+function fmt(v,key){
+ if(v===null||v===undefined||v==='')return '–';
+ if(typeof v==='string' && /^P/.test(v)){
+   const m=v.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/);
+   if(m)return `${m[1]?Number(m[1])*60:0 + Number(m[2]||0)} min`;
+ }
+ if(typeof v==='number')return Number.isInteger(v)?String(v):v.toFixed(1).replace('.',',');
+ return String(v);
+}
+function groupRows(group){
+ const headers=group.headers||[];
+ return (group.statistics||[]).map(row=>{
+   const obj={name:row.person?.name||row.name||'',team:row.entity?.name||row.entityName||''};
+   headers.forEach((h,i)=>obj[h.key]=row.statistics?.[i]);
+   return obj;
+ });
+}
+function groupKey(g){return String(g.label?.key||g.label?.text||'').toLowerCase()}
+function findGroup(groups,key){
+ return groups.find(g=>groupKey(g).includes(key))||null;
+}
+function getTeamName(competitor){return competitor?.name||competitor?.entityName||competitor?.team?.name||''}
+function extractFixture(detail){
+ const root=detail?.data||detail;
+ const fixture=root.fixture||root;
+ const banner=root.banner||detail.banner||{};
+ const seasonId=fixture.seasonId||banner.season?.id||root.season?.id;
+ const competition=banner.competition?.name||root.competition?.name||'Koripallo';
+ const competitors=fixture.competitors||root.competitors||[];
+ const teams=competitors.map(c=>({id:c.entityId||c.id||c.team?.id,name:getTeamName(c)})).filter(t=>t.id||t.name);
+ return {seasonId,competition,teams};
+}
+async function fetchJson(url,headers={}){
+ const r=await fetch(url,{headers}); const text=await r.text();
+ let j;try{j=JSON.parse(text)}catch{throw new Error(`Palvelin palautti muuta kuin JSON-dataa (HTTP ${r.status}).`)}
+ if(!r.ok)throw new Error(`HTTP ${r.status}: ${j.message||j.error||text.slice(0,180)}`);
+ return j;
+}
+function renderTeam(team,groups,mode,sortKey){
+ const g=findGroup(groups,mode);
+ if(!g)return `<section class="card"><div class="head"><div class="team">${escapeHtml(team)}</div></div><div class="empty">TÄLLE TILASTORYHMÄLLE EI LÖYTYNYT TIETOJA</div></section>`;
+ const rows=groupRows(g).filter(r=>norm(r.team)===norm(team)).sort((a,b)=>{
+   if(sortKey==='name')return a.name.localeCompare(b.name,'fi');
+   return (Number(b[sortKey])||0)-(Number(a[sortKey])||0);
+ });
+ const headers=g.headers||[];
+ const columns=headers.map(h=>({key:h.key,label:h.name||h.key}));
+ if(!rows.length)return `<section class="card"><div class="head"><div class="team">${escapeHtml(team)}</div></div><div class="empty">JOUKKUEELLE EI LÖYTYNYT PELAAJARIVEJÄ</div></section>`;
+ return `<section class="card"><div class="head"><div class="team">${escapeHtml(team)}</div><div class="count">${rows.length} PELAAJAA</div></div><div class="section-label">KAUDEN KESKIARVOT</div><div class="table-wrap"><table><thead><tr><th>Pelaaja</th>${columns.filter(c=>c.key!=='name'&&c.key!=='team').map(c=>`<th title="${escapeHtml(c.label)}">${escapeHtml(c.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${escapeHtml(r.name)}</td>${columns.filter(c=>c.key!=='name'&&c.key!=='team').map(c=>`<td class="num">${escapeHtml(fmt(r[c.key],c.key))}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>`;
+}
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+const TP='https://koripallo-api.torneopal.net/taso/rest/getMatches';
+const TP_HASH_SEED='ysnyp4h6e9egetkc3s3v';
+const TP_ACCEPT='json/df8e84j9xtdz269euy3h';
+const FIXTURE_API=SR+'fixture_detail';
+const params=new URLSearchParams(location.search);
+function localDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function findMatchRecord(root,wantedId){
+ const seen=new Set();
+ function walk(v){
+  if(!v||typeof v!=='object'||seen.has(v))return null;seen.add(v);
+  if(!Array.isArray(v)&&v.match_id!=null&&String(v.match_id)===String(wantedId))return v;
+  for(const child of Object.values(v)){const found=walk(child);if(found)return found;}
+  return null;
+ }
+ return walk(root);
+}
+async function hashForDate(date){
+ const source='getMatches?'+TP_HASH_SEED+'&date='+date;
+ const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(source));
+ return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function resolveFixtureId(id,date){
+ const hash=await hashForDate(date);
+ const url=TP+'?date='+encodeURIComponent(date)+'&hash='+encodeURIComponent(hash);
+ const data=await fetchJson(url,{Accept:TP_ACCEPT,Referer:'https://tulospalvelu.basket.fi/'});
+ const match=findMatchRecord(data,id);
+ if(!match)throw new Error('Ottelua '+id+' ei löytynyt päivältä '+date+'. Tarkista ottelun ID ja päivämäärä.');
+ if(!match.match_external_id)throw new Error('Ottelulta puuttuu Sportradar-tunniste (match_external_id).');
+ return match.match_external_id;
+}
+async function getFixture(fixtureId){
+ return fetchJson(FIXTURE_API+'?fixtureId='+encodeURIComponent(fixtureId),{Accept:TP_ACCEPT,Referer:'https://tulospalvelu.basket.fi/'});
+}
+function fixtureInfo(detail){
+ const root=detail?.data||detail;
+ const fixture=root.fixture||root;
+ const banner=root.banner||{};
+ const seasonId=fixture.seasonId||banner.season?.id;
+ const competition=banner.competition?.name||root.competition?.name||'Koripallo';
+ const competitors=fixture.competitors||[];
+ const teams=competitors.map(c=>({id:c.entityId||c.id,name:c.name||c.entityName||''})).filter(t=>t.name);
+ if(!seasonId)throw new Error('Ottelun tiedoista ei löytynyt kauden tunnusta (seasonId).');
+ if(teams.length<2)throw new Error('Ottelun kahta joukkuetta ei löytynyt.');
+ return {seasonId,competition,teams};
+}
+
+function applyScale(){
+ const raw=params.get('scale');const v=raw===null?100:Number(raw);
+ const scale=Number.isFinite(v)?Math.max(25,Math.min(300,v))/100:1;
+ document.querySelector('.wrap').style.transform=`scale(${scale})`;
+ document.querySelector('.wrap').style.transformOrigin='top center';
+}
+async function load(){
+ const id=params.get('match');
+ const date=params.get('date')||localDate(new Date());
+ if(!id){setStatus('OTTELUN TUNNUS PUUTTUU','err');return}
+ setStatus('HAETAAN OTTELUN TIETOJA…');
+ try{
+  const fixtureId=await resolveFixtureId(id,date);
+  setStatus('HAETAAN JOUKKUEIDEN KAUSITILASTOJA…');
+  const detail=await getFixture(fixtureId);
+  const info=fixtureInfo(detail);
+  const stats=await fetchJson(SR+'statistics_persons?seasonId='+encodeURIComponent(info.seasonId));
+  const groups=stats.data?.statistics||[];
+  if(!groups.length)throw new Error('Kausitilastoja ei löytynyt Sportradarista.');
+  $('competition').textContent=info.competition.toLocaleUpperCase('fi-FI');
+  $('seasonLabel').textContent='KAUSI '+date.slice(0,4)+'–'+(Number(date.slice(0,4))+1);
+  const averages=findGroup(groups,'averages')||groups[0];
+  $('results').innerHTML=info.teams.slice(0,2).map(t=>renderTeam(t.name,groups,'averages','pointsPerGame')).join('');
+  setStatus('');
+ }catch(e){
+  setStatus(e.message||String(e),'err');
+  $('results').innerHTML='<div class="empty">KAUSITILASTOJA EI VOITU HAKEA</div>';
+ }
+}
+applyScale();
+load();
+const refreshSeconds=Math.max(0,Math.min(3600,Number(params.get('refresh')||0)));
+if(refreshSeconds>0)setInterval(load,refreshSeconds*1000);
+</script></body></html>
