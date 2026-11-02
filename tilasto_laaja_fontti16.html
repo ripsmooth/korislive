@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Basket – taukotilastot (Sportradar)</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;min-height:100%;font-family:Arial,Helvetica,sans-serif;background:transparent;color:#fff}body{padding:12px}.wrap{--scale:1;width:100%;max-width:1700px;margin:0 auto;transform:scale(var(--scale));transform-origin:top center}.title{text-align:center;font-weight:800;font-size:28px;letter-spacing:.5px;margin:0 0 12px;text-shadow:0 2px 5px #000}.teams{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch}.card{display:flex;flex-direction:column;background:rgba(8,12,18,.96);border:2px solid #344052;border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.35)}.head{display:grid;grid-template-columns:56px 1fr 100px;align-items:center;padding:12px 16px;background:#111a25;border-bottom:1px solid #344052}.logo{width:46px;height:46px;object-fit:contain;display:block}.team{font-size:22px;font-weight:800}.score{text-align:right;font-size:46px;font-weight:900;line-height:1}.table-wrap{width:100%;overflow-x:auto}.table{width:100%;min-width:820px;border-collapse:collapse;table-layout:fixed}.table th,.table td{padding:6px 4px;border-bottom:1px solid #2b3543;text-align:center;white-space:nowrap}.table th{font-size:10px;line-height:1.15;color:#aeb8c5;background:#18212d}.table th:nth-child(1),.table td:nth-child(1){width:32px}.table th:nth-child(2),.table td:nth-child(2){width:150px;text-align:left}.table td{font-size:16px;font-weight:700}.table td:nth-child(2){font-weight:600;overflow:hidden;text-overflow:ellipsis}.teamstats{margin-top:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#101822;border-top:2px solid #344052}.stat{padding:10px 8px;text-align:center;border-right:1px solid #2b3543;border-bottom:1px solid #2b3543;min-width:0}.stat:nth-child(3n){border-right:0}.label{font-size:10px;color:#9eabb9;text-transform:uppercase;letter-spacing:.3px}.value{font-size:17px;font-weight:800;margin-top:4px}.section-label{padding:8px 12px;background:#18212d;color:#f2c94c;font-size:12px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;border-top:1px solid #344052}.status{position:fixed;left:12px;bottom:12px;background:rgba(0,0,0,.8);padding:6px 9px;border-radius:6px;font:12px Arial;color:#b8c3cf;display:none}.picker{display:none}@media(max-width:800px){.teams{grid-template-columns:1fr}.title{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">TAUKOTILASTOT</div>
+  <div class="teams">
+    <section class="card"><div class="head"><img id="homeLogo" class="logo" alt=""><div id="homeName" class="team">KOTI</div><div id="homeScore" class="score">–</div></div><div class="section-label">Pelaajatilastot</div><div class="table-wrap"><table class="table"><thead><tr><th>NUMERO</th><th>NIMI</th><th>PELIAIKA</th><th>P</th><th>V</th><th>2P</th><th>2P %</th><th>3P</th><th>3P %</th><th>VAPAAH.</th><th>VAPAAH. %</th></tr></thead><tbody id="homeRows"><tr><td colspan="11">Odotetaan otteludataa…</td></tr></tbody></table></div><div class="section-label">Joukkueen tilastot</div><div class="teamstats"><div class="stat"><div class="label">2P onnistuneet / yritykset · %</div><div id="homeTwo" class="value">–</div></div><div class="stat"><div class="label">3P onnistuneet / yritykset · %</div><div id="homeThree" class="value">–</div></div><div class="stat"><div class="label">Levypallot yht. (hyökk. / puol.)</div><div id="homeRebounds" class="value">–</div></div><div class="stat"><div class="label">Ottelun suurin johto</div><div id="homeLead" class="value">–</div></div><div class="stat"><div class="label">Suurin pisteputki</div><div id="homeRun" class="value">–</div></div><div class="stat"><div class="label">Aika johtoasemassa</div><div id="homeTimeLead" class="value">–</div></div></div></section>
+    <section class="card"><div class="head"><img id="awayLogo" class="logo" alt=""><div id="awayName" class="team">VIERAS</div><div id="awayScore" class="score">–</div></div><div class="section-label">Pelaajatilastot</div><div class="table-wrap"><table class="table"><thead><tr><th>NUMERO</th><th>NIMI</th><th>PELIAIKA</th><th>P</th><th>V</th><th>2P</th><th>2P %</th><th>3P</th><th>3P %</th><th>VAPAAH.</th><th>VAPAAH. %</th></tr></thead><tbody id="awayRows"><tr><td colspan="11">Odotetaan otteludataa…</td></tr></tbody></table></div><div class="section-label">Joukkueen tilastot</div><div class="teamstats"><div class="stat"><div class="label">2P onnistuneet / yritykset · %</div><div id="awayTwo" class="value">–</div></div><div class="stat"><div class="label">3P onnistuneet / yritykset · %</div><div id="awayThree" class="value">–</div></div><div class="stat"><div class="label">Levypallot yht. (hyökk. / puol.)</div><div id="awayRebounds" class="value">–</div></div><div class="stat"><div class="label">Ottelun suurin johto</div><div id="awayLead" class="value">–</div></div><div class="stat"><div class="label">Suurin pisteputki</div><div id="awayRun" class="value">–</div></div><div class="stat"><div class="label">Aika johtoasemassa</div><div id="awayTimeLead" class="value">–</div></div></div></section>
+  </div>
+</div><div id="status" class="status"></div>
+<script>
+const API='https://embed-api.eui.connect.sportradar.com/v1/embed/322/fixture_detail';
+const DEFAULT_STATE='eJwljDEKwzAMAL8SNFcQKSKWunftHyLbgkDpYk8t_XsRGe847gsD7guINhZ1QvfVkSgIdbWK7NZDCpMXgtsCr4z7Gx_PpE_SmMc8xzzrSBWpNrGqxSxv7brZLoFh3XduB9dN4fcHiH4fvw';
+const TORNEOPAL_MATCHES='https://koripallo-api.torneopal.net/taso/rest/getMatches';
+// Sama SHA-256-hashin muodostus kuin Basket.fi:n omassa TorneoPal-asiakasohjelmassa.
+const TORNEOPAL_HASH_SEED='ysnyp4h6e9egetkc3s3v';
+// Basket.fi:n Network-pyynnöstä löytyvä TorneoPalin API-tunniste Accept-otsakkeessa.
+const TORNEOPAL_ACCEPT='json/df8e84j9xtdz269euy3h';
+const params=new URLSearchParams(location.search);
+const STATE=params.get('state')||DEFAULT_STATE;
+const MATCH_ID=params.get('match');
+const MATCH_DATE=params.get('date')||new Date().toLocaleDateString('en-CA');
+let fixtureId=null;
+let lastMatchLookup=0;
+
+function applyUrlParams(){
+  const rawScale=params.get('scale');
+  const value=rawScale===null||rawScale.trim()===''?100:Number(rawScale);
+  const scale=Number.isFinite(value)?Math.max(25,Math.min(300,value))/100:1;
+  document.querySelector('.wrap')?.style.setProperty('--scale',scale);
+}
+applyUrlParams();
+
+const $=id=>document.getElementById(id);
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function showError(s){$('status').textContent=s;$('status').style.display='block';}
+if(MATCH_ID){$('status').textContent='Haetaan ottelua '+MATCH_ID+' ('+MATCH_DATE+')…';$('status').style.display='block';}
+
+function findMatchRecord(root, wantedId){
+  // TorneoPalin vastauksen kääre voi vaihdella: matches voi olla juuritasolla,
+  // data- tai result-olion sisällä tai API-välittäjän paketoimana.
+  const seen=new Set();
+  function walk(value){
+    if(!value || typeof value!=='object' || seen.has(value)) return null;
+    seen.add(value);
+    if(!Array.isArray(value) && value.match_id!=null && String(value.match_id)===String(wantedId)) return value;
+    const preferred=['matches','data','result','response','payload'];
+    for(const key of preferred){ if(value[key]!=null){ const found=walk(value[key]); if(found)return found; } }
+    for(const child of Object.values(value)){ const found=walk(child); if(found)return found; }
+    return null;
+  }
+  return walk(root);
+}
+async function createTorneoPalHash(endpoint, queryParams){
+  // Basket.fi muodostaa hashin muodossa: endpoint + '?ysnyp4h6e9egetkc3s3v' + parametrit.
+  // Parametrien järjestys säilytetään täsmälleen samana kuin alkuperäisessä pyynnössä.
+  let source=endpoint+'?'+TORNEOPAL_HASH_SEED;
+  for(const key of Object.keys(queryParams)){
+    source+='&'+key+'='+queryParams[key];
+  }
+  if(!globalThis.crypto?.subtle)throw Error('Selain ei tue Web Crypto -hashin muodostamista. Avaa sivu HTTPS-yhteydellä.');
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(source));
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function resolveFixtureId(){
+  if(!MATCH_ID)return null;
+  const queryParams={date:MATCH_DATE};
+  const hash=await createTorneoPalHash('getMatches',queryParams);
+  const url=TORNEOPAL_MATCHES+'?date='+encodeURIComponent(MATCH_DATE)+'&hash='+encodeURIComponent(hash);
+  let response;
+  try {
+    response=await fetch(url,{cache:'no-store',headers:{'Accept':TORNEOPAL_ACCEPT,'Referer':'https://tulospalvelu.basket.fi/'}});
+  } catch(e) {
+    throw Error('TorneoPal-yhteys epäonnistui: '+(e?.message||e)+'. Selain/OBS saattaa estää pyynnön (CORS tai verkkovirhe).');
+  }
+  const body=await response.text();
+  if(!response.ok)throw Error('TorneoPal getMatches HTTP '+response.status+(body?' — '+body.slice(0,350).replace(/\s+/g,' '):''));
+  let data;
+  try{data=JSON.parse(body);}catch{throw Error('TorneoPal ei palauttanut JSONia. Vastaus alkaa: '+body.slice(0,250).replace(/\s+/g,' '));}
+  const match=findMatchRecord(data,MATCH_ID);
+  if(!match){
+    const keys=data&&typeof data==='object'?Object.keys(data).join(', '):typeof data;
+    const call=data?.call||{};
+    const list=Array.isArray(data?.matches)?data.matches:
+      Array.isArray(data?.data?.matches)?data.data.matches:
+      Array.isArray(data?.result?.matches)?data.result.matches:null;
+    const samples=list?list.slice(0,5).map(x=>String(x?.match_id??'?')).join(', '):'ei löydetty suoraa matches-taulukkoa';
+    throw Error('Ottelua '+MATCH_ID+' ei löydy getMatches-vastauksesta. Päivä='+MATCH_DATE+', HTTP='+response.status+', call.status='+(call.status??'puuttuu')+', total_result_count='+(call.total_result_count??'puuttuu')+'. Juuren avaimet: '+keys+'. Ensimmäiset ottelu-ID:t: '+samples+'. Vastaus alkaa: '+body.slice(0,500).replace(/\s+/g,' '));
+  }
+  if(!match.match_external_id)throw Error('Ottelu '+MATCH_ID+' löytyi, mutta match_external_id puuttuu.');
+  return match.match_external_id;
+}
+async function getFixture(){
+  if(MATCH_ID && !fixtureId){
+    fixtureId=await resolveFixtureId();
+  }
+  // Ottelun ID:llä haettaessa käytetään TorneoPalista ratkaistua Sportradar-fixtureId:tä.
+  // Vanha state-parametri ja oletustila toimivat edelleen, jos match-parametria ei anneta.
+  const url=MATCH_ID ? API+'?fixtureId='+encodeURIComponent(fixtureId) : API+'?state='+STATE;
+  const response=await fetch(url,{cache:'no-store',headers:{'Accept':TORNEOPAL_ACCEPT,'Referer':'https://tulospalvelu.basket.fi/'}});
+  const body=await response.text();
+  if(!response.ok){
+    const detail=body.slice(0,500).replace(/\s+/g,' ').trim();
+    throw Error('Sportradar HTTP '+response.status+(detail?' — '+detail:''));
+  }
+  let data;
+  try{data=JSON.parse(body);}catch{throw Error('Sportradar palautti virheellisen JSON-vastauksen: '+body.slice(0,250));}
+  if(data?.error||data?.errors)throw Error('Sportradar API-virhe: '+JSON.stringify(data.error||data.errors).slice(0,300));
+  return data?.data||data;
+}
+
+function pct(v){return v==null||!Number.isFinite(Number(v))?'–':Number(v).toFixed(1).replace('.',',')+'%';}
+function fmtMinutes(v){
+  if(!v)return '–';
+  const m=String(v).match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
+  if(!m)return String(v);
+  const total=Math.round((Number(m[1]||0)*3600)+(Number(m[2]||0)*60)+Number(m[3]||0));
+  return Math.floor(total/60)+':'+String(total%60).padStart(2,'0');
+}
+function teamRows(side){
+  const players=side?.persons?.[0]?.rows||[];
+  return players.map(p=>{
+    const s=p.statistics||{};
+    return {num:p.bib??'',name:p.personName||'',minutes:fmtMinutes(s.minutes),points:s.points??0,fouls:s.foulsTotal??0,
+      two:(s.pointsTwoMade??0)+'/'+(s.pointsTwoAttempted??0),twoPct:pct(s.pointsTwoPercentage),three:(s.pointsThreeMade??0)+'/'+(s.pointsThreeAttempted??0),threePct:pct(s.pointsThreePercentage),
+      ft:(s.freeThrowsMade??0)+'/'+(s.freeThrowsAttempted??0),ftPct:pct(s.freeThrowsPercentage)};
+  }).filter(p=>p.name).sort((a,b)=>{
+    const an=String(a.num).trim(),bn=String(b.num).trim();
+    const av=an===''?Infinity:Number(an),bv=bn===''?Infinity:Number(bn);
+    return av-bv||an.localeCompare(bn,'fi')||a.name.localeCompare(b.name,'fi');
+  });
+}
+function rows(list){
+  if(!list.length)return '<tr><td colspan="11">Ei pelaajatietoja</td></tr>';
+  return list.map(p=>'<tr><td>'+esc(p.num)+'</td><td>'+esc(p.name)+'</td><td>'+esc(p.minutes)+'</td><td>'+p.points+'</td><td>'+p.fouls+'</td><td>'+p.two+'</td><td>'+p.twoPct+'</td><td>'+p.three+'</td><td>'+p.threePct+'</td><td>'+p.ft+'</td><td>'+p.ftPct+'</td></tr>').join('');
+}
+function setTeamStats(prefix,side){
+  const e=side?.entity||{}, t=side?.totalEntityStats||{};
+  $(prefix+'Two').textContent=(e.pointsTwoMade??'–')+' / '+(e.pointsTwoAttempted??'–')+' · '+pct(e.pointsTwoPercentage);
+  $(prefix+'Three').textContent=(e.pointsThreeMade??'–')+' / '+(e.pointsThreeAttempted??'–')+' · '+pct(e.pointsThreePercentage);
+  $(prefix+'Rebounds').textContent=(e.rebounds??'–')+' ('+(e.reboundsOffensive??'–')+' / '+(e.reboundsDefensive??'–')+')';
+  $(prefix+'Lead').textContent=t.biggestLead??'–';
+  $(prefix+'Run').textContent=t.biggestScoringRun??'–';
+  $(prefix+'TimeLead').textContent=fmtMinutes(t.timeInLead);
+}
+function periodScores(periods,teamId){
+  return (periods||[]).filter(p=>p.periodId!=null).map(p=>{
+    const score=p.teamScore?.[teamId];
+    return score===undefined?null:Number(score);
+  }).filter(v=>v!==null).join('-')||'–';
+}
+function render(d){
+  const f=d.fixture||{};
+  const competitors=f.competitors||[];
+  const home=competitors.find(c=>c.isHome)||competitors[0]||{};
+  const away=competitors.find(c=>!c.isHome)||competitors[1]||{};
+  const base=d.statistics?.data?.base||{};
+  const homeStats=base.home||{},awayStats=base.away||{};
+
+  $('homeName').textContent=home.name||'KOTI';
+  $('awayName').textContent=away.name||'VIERAS';
+  if(home.logo)$('homeLogo').src=home.logo;
+  if(away.logo)$('awayLogo').src=away.logo;
+  $('homeScore').textContent=home.score??homeStats.entity?.points??'–';
+  $('awayScore').textContent=away.score??awayStats.entity?.points??'–';
+  $('homeRows').innerHTML=rows(teamRows(homeStats));
+  $('awayRows').innerHTML=rows(teamRows(awayStats));
+  setTeamStats('home',homeStats);
+  setTeamStats('away',awayStats);
+  $('status').style.display='none';
+}
+async function poll(){
+  try{render(await getFixture());}
+  catch(e){showError(e.message);}
+  finally{setTimeout(poll,3000);}
+}
+poll();
+</script></body></html>
