@@ -8,9 +8,9 @@
 <div class="settings"><div class="field"><label for="match">Ottelun ID tai Basket.fi-ottelulinkki</label><input id="match" placeholder="Esim. 1014477 tai ottelun URL" autocomplete="off"></div><div class="field smallfield"><label for="scale">Koko (%)</label><input id="scale" type="number" min="25" max="300" value="100"></div><div class="field smallfield"><label for="delay">Viive (s)</label><input id="delay" type="number" min="0" max="300" value="0"></div><button class="btn" id="generate">Luo linkit</button></div><div id="message" class="msg" aria-live="polite"></div>
 <div class="links" id="links"></div>
 <section class="parambox"><h2>Osoitteessa käsin säädettävät parametrit</h2><div class="paramgrid">
-<div class="param"><code>?match=OTTELUN_ID</code><p>Valitsee ottelun. Käytössä kaikissa kuudessa grafiikassa. Esim. <code>?match=1014477</code>.</p></div>
+<div class="param"><code>?match=OTTELUN_ID</code><p>Valitsee ottelun. Käytössä ottelukohtaisissa grafiikoissa. Esim. <code>?match=1014477</code>.</p></div>
 <div class="param"><code>&amp;scale=100</code><p>Grafiikan koko. Tulosgrafiikoissa (tulos, tulos1, tulos3), kuntopuntarissa ja tilasto.html-sivussa arvo on prosentteina: 100 = normaali, 120 = 120 %. Sarjataulukossa (taulukko.html) arvo on kerroin: 1 = normaali, 1.2 = 120 %. Tilastot tulostaulun reunoihin -grafiikka ei käytä scale-parametria.</p></div>
-<div class="param"><code>&amp;date=YYYY-MM-DD</code><p>Laajennetussa ottelutilastossa päivämäärä haetaan automaattisesti ottelun ID:n perusteella.</p></div>
+<div class="param"><code>&amp;date=YYYY-MM-DD</code><p>Laajennetussa ottelutilastossa ja kokoonpanografiikassa päivämäärä haetaan automaattisesti ottelun ID:n perusteella.</p></div>
 <div class="param"><code>&amp;delay=7</code><p>Vain tulos-, tulos1- ja tulos3-grafiikoissa: näyttää otteludataa viiveellä sekunteina. Sallittu alue 0–300 s.</p></div>
 <div class="param"><code>&amp;width=1100</code><p>Sarjataulukko- ja tilasto.html-sivuissa: grafiikan leveys pikseleinä, sallittu alue 500–1920.</p></div>
 <div class="param"><code>&amp;offsetX=20</code><p>Siirtää grafiikkaa vaakasuunnassa pikseleinä. Positiivinen arvo oikealle, negatiivinen vasemmalle. Tuettu kuntopuntarissa sekä sarjataulukko-/tilastosivuissa.</p></div>
@@ -22,6 +22,7 @@ const graphics=[
  {name:'Sarjataulukko',file:'taulukko.html',params:['match','scale','width','offsetX','offsetY'],scaleMode:'factor'},
  {name:'Tilasto',file:'tilasto.html',params:['match','scale','width','offsetX','offsetY'],scaleMode:'percent'},
  {name:'Laajennettu ottelutilasto',file:'tilasto_laaja.html',params:['match','date','scale'],scaleMode:'percent'},
+  {name:'Kokoonpanot',file:'kokoonpanot.html',params:['match','date','scale'],scaleMode:'percent'},
   {name:'Tilastot tulostaulun reunoihin',file:'tilastot_tulostaulu.html',params:['match']},
  {name:'Tulostaulu',file:'tulos.html',params:['match','scale','delay'],scaleMode:'percent'},
  {name:'Yksi viimeisin tapahtuma',file:'tulos1.html',params:['match','scale','delay'],scaleMode:'percent'},
