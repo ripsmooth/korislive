@@ -457,8 +457,8 @@ function formatClockSeconds(seconds){
  return Math.floor(n/60)+":"+String(n%60).padStart(2,"0");
 }
 function clockRunning(status){
- // Käynnistetään interpolointi vain, kun Sportradar ilmoittaa jakson olevan käynnissä.
- const candidates=[status?.period,status?.fixture,status?.match,status?.status];
+ // Sportradar palauttaa tilan tässä upotuksessa usein fixture.status-kentässä.
+ const candidates=[status?.period,status?.fixture,status?.match,status?.status,status?.fixtureStatus,status?.statusLabel];
  return candidates.some(v=>{
    if(typeof v==="string")return /IN_PROGRESS|INPROGRESS|LIVE|RUNNING/i.test(v);
    if(v&&typeof v==="object")return Object.values(v).some(x=>typeof x==="string"&&/IN_PROGRESS|INPROGRESS|LIVE|RUNNING/i.test(x));
@@ -534,31 +534,53 @@ function render(d){
  const home=c.find(x=>x.isHome)||c[0]||{}, away=c.find(x=>!x.isHome)||c[1]||{};
  const homeId=home.entityId,awayId=away.entityId;
  setTeamName("homeName",home.name||"KOTI");setTeamName("awayName",away.name||"VIERAS");
- $("homeScore").textContent=home.score??"–";$("awayScore").textContent=away.score??"–";
  if(home.logo)$("homeLogo").src=home.logo;if(away.logo)$("awayLogo").src=away.logo;
  const status=d.status||{};
  const events=allEvents(d);
  const statusLabel=String(f.statusLabel||f.status||status.fixtureStatus||status.status||"").toLowerCase();
- const isFinal=/final|finished|complete|ended/.test(statusLabel);
- // Ottelun päätyttyä Sportradar voi jättää status.periodId-kentän tyhjäksi tai nollaksi.
- // Silloin käytetään viimeistä datassa olevaa neljännestä (yleensä 4), jotta virheet säilyvät.
+ const isFinal=/final|finished|complete|ended|confirmed/.test(statusLabel);
  const availablePeriods=(d.periodData||[]).map(p=>Number(p.periodId)).filter(n=>Number.isFinite(n)&&n>0);
  const lastAvailablePeriod=availablePeriods.length?Math.max(...availablePeriods):0;
- const reportedPeriod=Number(status.periodId||status.currentPeriod||0);
- const period=(reportedPeriod>=1?reportedPeriod:(isFinal?lastAvailablePeriod:0));
+ // Live-syötteessä periodId voi puuttua d.status-oliosta. Käytä silloin viimeisintä
+ // alkanutta jaksoa, jossa on tapahtumia.
+ const activePeriodData=[...(d.periodData||[])].reverse().find(p=>p.started===true && p.ended!==true && (p.events||[]).length);
+ const latestEventPeriod=events.length?Number(events[events.length-1]._period||events[events.length-1].periodId):0;
+ const reportedPeriod=Number(status.periodId||status.currentPeriod||f.periodId||0);
+ const period=reportedPeriod>=1?reportedPeriod:(activePeriodData?Number(activePeriodData.periodId):(latestEventPeriod||lastAvailablePeriod));
  $("period").textContent=period>=1&&period<=4?period+". JAKSO":isFinal?"LOPPUTULOS":statusLabel.includes("live")?"LIVE":"–";
- // Sync from Sportradar, then interpolate locally between API updates.
- if(isFinal && status.clock==null && status.gameClock==null && status.remainingTime==null && d.clock==null){
-   clockBaseSeconds=0;clockIsRunning=false;$('clock').textContent='0:00';
- } else syncClock(status,d);
+
+ // Kokonaistilanne: viimeisen pelitapahtuman scores on live-syötteessä tuoreempi
+ // kuin fixture.competitors.score, joka voi päivittyä vasta ottelun päättyessä.
+ const lastScoredEvent=[...events].reverse().find(e=>e.scores&&e.scores[homeId]!=null&&e.scores[awayId]!=null);
+ let totalHome=lastScoredEvent?lastScoredEvent.scores[homeId]:null;
+ let totalAway=lastScoredEvent?lastScoredEvent.scores[awayId]:null;
+ if(totalHome==null||totalAway==null){
+   let sumHome=0,sumAway=0,hasPeriodScore=false;
+   for(const p of (d.periodData||[])){
+     const ps=p.teamScore||{};
+     if(ps[homeId]!=null&&ps[awayId]!=null){sumHome+=Number(ps[homeId])||0;sumAway+=Number(ps[awayId])||0;hasPeriodScore=true;}
+   }
+   if(hasPeriodScore){totalHome=sumHome;totalAway=sumAway;}
+ }
+ $("homeScore").textContent=totalHome??home.score??"–";
+ $("awayScore").textContent=totalAway??away.score??"–";
+
+ // Pelikello: tässä Sportradar-fixture_detail-vastauksessa kello löytyy usein
+ // viimeisimmän tapahtuman clock-kentästä, ei d.status.clock-kentästä.
  const periodEvents=events.filter(e=>Number(e.periodId||e._period)===period);
- const isCountedTeamFoul=e=>String(e.eventType||"").toLowerCase()==="foul"&&String(e.eventSubType||"").toLowerCase()!=="drawn";
+ const latestPeriodEvent=periodEvents[periodEvents.length-1];
+ const clockStatus={...status,fixture:f,status:f.status||status.status,statusLabel:f.statusLabel||status.statusLabel};
+ const rawClock=status.clock??status.gameClock??status.remainingTime??f.clock??latestPeriodEvent?.clock??d.clock;
+ if(rawClock!=null){syncClock({...clockStatus,clock:rawClock},d);}
+ else if(isFinal){clockBaseSeconds=0;clockIsRunning=false;$('clock').textContent='0:00';}
+ else syncClock(clockStatus,d);
+
  const eventTeamId=e=>e.entityId??e.teamId??e.competitorId??e.team?.entityId;
+ const isCountedTeamFoul=e=>String(e.eventType||"").toLowerCase()==="foul"&&String(e.eventSubType||"").toLowerCase()!=="drawn";
  const foulsA=periodEvents.filter(e=>String(eventTeamId(e))===String(homeId)&&isCountedTeamFoul(e)).length;
  const foulsB=periodEvents.filter(e=>String(eventTeamId(e))===String(awayId)&&isCountedTeamFoul(e)).length;
  renderFoulBalls("homeFoulsBalls",foulsA,previousFoulsA);renderFoulBalls("awayFoulsBalls",foulsB,previousFoulsB);
  previousFoulsA=foulsA;previousFoulsB=foulsB;
- // Sportradar antaa erän omat pisteet suoraan periodData.teamScore-kentässä.
  const byPeriod=new Map();
  for(const p of (d.periodData||[])){
    const score=p.teamScore||{};
@@ -566,8 +588,8 @@ function render(d){
  }
  let q="";
  for(let i=1;i<=4;i++){
-   const s=byPeriod.get(i);
-   q+=`<div class="q"><small>${i}. JAKSO</small>${s&&s.a!==undefined?esc(s.a):"–"} – ${s&&s.b!==undefined?esc(s.b):"–"}</div>`;
+   const ps=byPeriod.get(i);
+   q+=`<div class="q"><small>${i}. JAKSO</small>${ps&&ps.a!==undefined?esc(ps.a):"–"} – ${ps&&ps.b!==undefined?esc(ps.b):"–"}</div>`;
  }
  $("quarters").innerHTML=q;
  renderLatest(events,homeId,awayId);
