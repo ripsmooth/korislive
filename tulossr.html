@@ -2,7 +2,7 @@
 <html lang="fi">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Koripallon TV-tulostaulu – Sportradar / simulaatio</title>
+<title>Koripallon TV-tulostaulu – ilman tapahtumia</title>
 <style>
 
 :root{
@@ -290,6 +290,16 @@ button{
   color:#9cffb7;border:1px solid #283342;border-radius:9px;padding:15px;
   overflow:auto;white-space:pre-wrap;font:12px Consolas,monospace;z-index:90;
 }
+body.debug-mode #raw{
+  display:block;position:relative;inset:auto;margin:12px auto 0;width:min(96vw,1400px);
+  max-height:45vh;min-height:120px;box-sizing:border-box;z-index:5;
+  border:1px solid #64748b;border-radius:5px;
+}
+body.debug-mode::before{
+  content:"DEBUG MODE · Sportradar JSON";display:block;position:relative;
+  margin:8px auto 0;width:min(96vw,1400px);color:#9cffb7;
+  font:700 12px Consolas,monospace;letter-spacing:.08em;
+}
 #error{
   display:none;position:fixed;top:10px;left:10px;right:10px;
   background:#321318;color:#ffb3b3;border-radius:7px;
@@ -351,7 +361,7 @@ button{
   </div>
   <div id="simBadge" style="display:none;position:absolute;right:0;top:-20px;background:#f5c400;color:#111;padding:3px 7px;font:900 10px Arial;letter-spacing:.05em;border-radius:2px">OTTELUSIMULAATIO</div>
   <div id="quarters" class="quarters"></div>
-  <div id="latest" class="latest"><b>LIVE</b>&nbsp; Odotetaan ottelutapahtumia…</div>
+  
 </div>
 <pre id="raw"></pre>
 <div id="error"></div>
@@ -360,6 +370,7 @@ button{
 (() => {
 const API="https://embed-api.eui.connect.sportradar.com/v1/embed/322/fixture_detail";
 const params=new URLSearchParams(location.search);
+const DEBUG=params.get("debug")==="1";
 const $=id=>document.getElementById(id);
 let fixtureId=params.get("fixtureId")||"";
 let busy=false, timer=null, lastData=null;
@@ -367,7 +378,7 @@ let previousFoulsA=null, previousFoulsB=null;
 
 // Pelikellon paikallinen ankkuri: Sportradar synkronoi ajan 3 s välein,
 // selain piirtää sekunnit niiden välissä vain pelin ollessa käynnissä.
-let clockBaseSeconds=null, clockAnchorMs=0, clockIsRunning=false;
+let clockBaseSeconds=null, clockAnchorMs=0, clockIsRunning=false, clockPeriodId=null;
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function applyUrlScale(){
@@ -376,6 +387,7 @@ function applyUrlScale(){
  document.querySelector(".overlay")?.style.setProperty("--scale",scale);
 }
 applyUrlScale();
+if(DEBUG) document.body.classList.add("debug-mode");
 
 function decodeState(input){
  let state=String(input||"").trim();
@@ -422,14 +434,47 @@ async function resolveFixture(){
  }
  throw Error("Ottelun tunniste puuttuu. Anna URL-parametri match (Basket.fi-ottelunumero), fixtureId tai state.");
 }
+async function encodeState(obj){
+ if(!("CompressionStream" in window))throw Error("Selain ei tue Sportradar-tilatunnisteen muodostamista (CompressionStream puuttuu).");
+ const stream=new Blob([JSON.stringify(obj)]).stream().pipeThrough(new CompressionStream("deflate"));
+ const bytes=new Uint8Array(await new Response(stream).arrayBuffer());
+ let binary=""; for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+ return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+}
+async function getJson(url,label){
+ const r=await fetch(url,{cache:"no-store",headers:{"Accept":"application/json"}});
+ const body=await r.text();
+ if(!r.ok)throw Error(label+" HTTP "+r.status+" — "+body.slice(0,220));
+ let data;try{data=JSON.parse(body)}catch{throw Error(label+" ei palauttanut JSON-dataa.");}
+ if(data.error||data.errors)throw Error(label+": "+JSON.stringify(data.error||data.errors).slice(0,220));
+ return data.data||data;
+}
 async function fetchFixture(){
  const id=await resolveFixture();
- const r=await fetch(API+"?fixtureId="+encodeURIComponent(id),{cache:"no-store",headers:{"Accept":"application/json"}});
- const body=await r.text();
- if(!r.ok)throw Error("Sportradar HTTP "+r.status+" — "+body.slice(0,300));
- let data;try{data=JSON.parse(body)}catch{throw Error("Sportradar ei palauttanut JSON-dataa.");}
- if(data.error||data.errors)throw Error(JSON.stringify(data.error||data.errors));
- return data.data||data;
+ // Hae ensin normaali fixture-detail (tulos, joukkueet ja tilastot).
+ const d=await getJson(API+"?fixtureId="+encodeURIComponent(id),"Sportradar-tilastohaku");
+ // PBP on Sportradarissa erillinen näkymä. Sen state tarvitsee kauden tunnisteen
+ // sekä saman fixture-tunnisteen; pelkkä fixtureId-parametri ei palauta tapahtumia.
+ let seasonId=d.seasonId||d.fixture?.seasonId||d.banner?.season?.id||"";
+ let locale=d.locale||"en-EN";
+ const input=params.get("state")||params.get("url");
+ if(input){
+   try{const source=JSON.parse(await new Response(await decodeState(input)).text());seasonId=seasonId||source.s;locale=source.l||locale;}
+   catch(e){console.warn("Alkuperäisen state-parametrin lukeminen epäonnistui:",e);}
+ }
+ if(!seasonId){d._pbpError="Kauden tunnistetta (seasonId) ei löytynyt fixture-detail-vastauksesta.";return d;}
+ try{
+   const pbpState=await encodeState({s:seasonId,l:locale,z:"pbp",f:id});
+   const pbp=await getJson(API+"?state="+encodeURIComponent(pbpState),"Sportradar PBP-haku");
+   if(Array.isArray(pbp.periodData)){
+     d.periodData=pbp.periodData;
+     d._pbpSource="state-pbp";
+     d._pbpUpdatedAt=new Date().toISOString();
+   }else{
+     d._pbpError="PBP-vastaus tuli, mutta periodData puuttuu. Vastauskentät: "+Object.keys(pbp||{}).join(", ");
+   }
+ }catch(e){d._pbpError=String(e?.message||e);}
+ return d;
 }
 function setTeamName(id,name){
  const el=$(id), words=String(name||"").trim().split(/\s+/);let a="",b="";
@@ -465,19 +510,31 @@ function clockRunning(status){
    return false;
  });
 }
-function syncClock(status,d){
- const summary=d.summary||{};
+function syncClock(status,d,summary){
  const raw=summary.clock?.main??status.clock??status.gameClock??status.remainingTime??d.clock;
  const seconds=parseClockSeconds(raw);
  if(seconds===null){
-   clockBaseSeconds=null;clockIsRunning=false;
+   clockBaseSeconds=null;clockIsRunning=false;clockPeriodId=null;
    $("clock").textContent="–:–";
    return;
  }
- // Jokainen palvelinpäivitys synkronoi paikallisen kellon uudelleen.
+ const incomingRunning=typeof summary.clock?.running==="boolean"?summary.clock.running:clockRunning(status);
+ const periodId=summary.status?.periodId??status.periodId??d.status?.periodId??null;
+ const now=Date.now();
+ const samePeriod=periodId==null||clockPeriodId==null||String(periodId)===String(clockPeriodId);
+ const displayedNow=clockBaseSeconds===null?null:Math.max(0,clockBaseSeconds-(clockIsRunning?(now-clockAnchorMs)/1000:0));
+
+ // API:n 3 sekunnin välein tuleva pelikello voi olla selainkelloa jäljessä.
+ // Käynnissä olevaa kelloa ei siksi koskaan siirretä ylöspäin vanhan arvon takia.
+ if(clockBaseSeconds!==null && samePeriod && clockIsRunning && incomingRunning && displayedNow!==null && seconds>=displayedNow){
+   renderClock();
+   return;
+ }
+ // Uusi jakso tai pysäytetty kello hyväksytään suoraan palvelimelta.
  clockBaseSeconds=seconds;
- clockAnchorMs=Date.now();
- clockIsRunning=typeof summary.clock?.running==="boolean"?summary.clock.running:clockRunning(status);
+ clockAnchorMs=now;
+ clockIsRunning=incomingRunning;
+ clockPeriodId=periodId;
  renderClock();
 }
 function renderClock(){
@@ -522,7 +579,11 @@ function renderLatest(events,homeId,awayId){
  // Ohiheitot, levypallot, syötöt, menetykset, vaihdot ym. jätetään pois.
  const useful=events.filter(e=>['score2','score3','ft','foul','timeout'].includes(eventType(e)));
  const recent=useful.slice(-3).reverse();
- if(!recent.length){$("latest").innerHTML="<b>LIVE</b>&nbsp; Ei pelitapahtumia";return;}
+ if(!recent.length){
+   const why=lastData?._pbpError;
+   $("latest").innerHTML="<b>LIVE</b>&nbsp; "+esc(why?"Tapahtumahaku: "+why:"Ei näytettäviä tapahtumia vielä");
+   return;
+ }
  $("latest").innerHTML=recent.map(e=>{
    const label=eventLabel(e), player=e.name?('#'+(e.bib||'')+' '+e.name):String(e.desc||'');
    const team=e.entityId===homeId?"KOTI":e.entityId===awayId?"VIERAS":"";
@@ -531,13 +592,25 @@ function renderLatest(events,homeId,awayId){
  }).join("");
 }
 function render(d){
+ // API:n debug-/proxy-vastaus voi sisältää varsinaisen Sportradar-datan response-avaimen alla.
+ // Puretaan kuori ennen kuin luetaan fixture-, summary- ja periodData-kenttiä.
+ if(d && d.response && typeof d.response==="object") d=d.response;
  const f=d.fixture||{}, c=f.competitors||[];
  const home=c.find(x=>x.isHome)||c[0]||{}, away=c.find(x=>!x.isHome)||c[1]||{};
  const homeId=home.entityId,awayId=away.entityId;
+ // Käytetään tulostaulun pistelukemassa ensisijaisesti Sportradarin summary.entities-dataa.
+ // fixture.competitors.score voi päivittyä viiveellä (esim. 59–55 vs summary 59–58).
+ const summaryEntities=d.summary?.entities||{};
+ const homeSummary=summaryEntities[String(homeId)]||{};
+ const awaySummary=summaryEntities[String(awayId)]||{};
+ const homeScore=homeSummary.score??homeSummary.points??home.score;
+ const awayScore=awaySummary.score??awaySummary.points??away.score;
  setTeamName("homeName",home.name||"KOTI");setTeamName("awayName",away.name||"VIERAS");
- $("homeScore").textContent=home.score??"–";$("awayScore").textContent=away.score??"–";
+ $("homeScore").textContent=homeScore??"–";$("awayScore").textContent=awayScore??"–";
  if(home.logo)$("homeLogo").src=home.logo;if(away.logo)$("awayLogo").src=away.logo;
- const summary=d.summary||{};
+ // Summary voi tulla joko fixture-detail-vastauksen juuresta tai PBP-vastauksen
+ // sisään liitetystä _pbpRaw-objektista. Käytetään kumpaa tahansa.
+ const summary=(d.summary&&Object.keys(d.summary).length?d.summary:null)||d._pbpRaw?.summary||{};
  const status=summary.status||d.status||{};
  const events=allEvents(d);
  const statusLabel=String(f.statusLabel||f.status||status.fixtureStatus||status.status||"").toLowerCase();
@@ -552,13 +625,15 @@ function render(d){
  // Sync from Sportradar, then interpolate locally between API updates.
  if(isFinal && summary.clock?.main==null && status.clock==null && status.gameClock==null && status.remainingTime==null && d.clock==null){
    clockBaseSeconds=0;clockIsRunning=false;$('clock').textContent='0:00';
- } else syncClock(status,d);
+ } else syncClock(status,d,summary);
  const periodEvents=events.filter(e=>Number(e.periodId||e._period)===period);
  const isCountedTeamFoul=e=>String(e.eventType||"").toLowerCase()==="foul"&&String(e.eventSubType||"").toLowerCase()!=="drawn";
  const eventTeamId=e=>e.entityId??e.teamId??e.competitorId??e.team?.entityId;
- const summaryEntities=summary.entities||{};
- const summaryHomeFouls=summaryEntities[homeId]?.fouls;
- const summaryAwayFouls=summaryEntities[awayId]?.fouls;
+ const foulSummaryEntities=summary.entities||{};
+ const summaryHomeFouls=foulSummaryEntities[homeId]?.fouls;
+ const summaryAwayFouls=foulSummaryEntities[awayId]?.fouls;
+ // Summary-kenttä sisältää nykyisen jakson joukkuevirheet. Tapahtumalista
+ // toimii varavaihtoehtona, jos summary-dataa ei ole saatavilla.
  const foulsA=summaryHomeFouls!==undefined?summaryHomeFouls:periodEvents.filter(e=>String(eventTeamId(e))===String(homeId)&&isCountedTeamFoul(e)).length;
  const foulsB=summaryAwayFouls!==undefined?summaryAwayFouls:periodEvents.filter(e=>String(eventTeamId(e))===String(awayId)&&isCountedTeamFoul(e)).length;
  renderFoulBalls("homeFoulsBalls",foulsA,previousFoulsA);renderFoulBalls("awayFoulsBalls",foulsB,previousFoulsB);
@@ -576,7 +651,10 @@ function render(d){
  }
  $("quarters").innerHTML=q;
  renderLatest(events,homeId,awayId);
- $("raw").textContent=JSON.stringify(d,null,2);
+ $("raw").textContent=JSON.stringify({
+   _debug:{fixtureId,updatedAt:new Date().toISOString(),periodEvents:events.length,pbpSource:d._pbpSource||null,pbpError:d._pbpError||null,homeId,awayId},
+   response:d
+ },null,2);
  $("error").style.display="none";
 }
 function showError(e){$("error").textContent=String(e?.message||e);$("error").style.display="block";}
