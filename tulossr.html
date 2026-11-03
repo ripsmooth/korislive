@@ -575,16 +575,20 @@ function eventClock(e){
  return seconds===null?"":formatClockSeconds(seconds);
 }
 function renderLatest(events,homeId,awayId){
+ // Tämä tulostauluversio ei sisällä tapahtumapaneelia.
+ // Älä yritä kirjoittaa puuttuvan #latest-elementin innerHTML-kenttään.
+ const latestEl=$("latest");
+ if(!latestEl) return;
  // Näytetään ainoastaan onnistuneet korit/vapaaheitot, tehdyt virheet ja aikalisät.
  // Ohiheitot, levypallot, syötöt, menetykset, vaihdot ym. jätetään pois.
  const useful=events.filter(e=>['score2','score3','ft','foul','timeout'].includes(eventType(e)));
  const recent=useful.slice(-3).reverse();
  if(!recent.length){
    const why=lastData?._pbpError;
-   $("latest").innerHTML="<b>LIVE</b>&nbsp; "+esc(why?"Tapahtumahaku: "+why:"Ei näytettäviä tapahtumia vielä");
+   latestEl.innerHTML="<b>LIVE</b>&nbsp; "+esc(why?"Tapahtumahaku: "+why:"Ei näytettäviä tapahtumia vielä");
    return;
  }
- $("latest").innerHTML=recent.map(e=>{
+ latestEl.innerHTML=recent.map(e=>{
    const label=eventLabel(e), player=e.name?('#'+(e.bib||'')+' '+e.name):String(e.desc||'');
    const team=e.entityId===homeId?"KOTI":e.entityId===awayId?"VIERAS":"";
    const typ=eventType(e), score=typ==="foul"?"VIRHE":scoreForEvent(e,homeId,awayId);
