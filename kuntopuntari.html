@@ -19,7 +19,26 @@ const q=new URLSearchParams(location.search);const matchId=q.get('match')||q.get
 const scale=Number(q.get('scale'));if(q.has('scale')&&Number.isFinite(scale)&&scale>0)document.documentElement.style.setProperty('--scale',Math.max(.5,Math.min(2,scale/100)));
 const ox=Number(q.get('offsetX')),oy=Number(q.get('offsetY'));if(q.has('offsetX')&&Number.isFinite(ox))document.documentElement.style.setProperty('--offset-x',ox+'px');if(q.has('offsetY')&&Number.isFinite(oy))document.documentElement.style.setProperty('--offset-y',oy+'px');
 const $=id=>document.getElementById(id);const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function api(path){const r=await fetch(API+path+'&timeStamp='+Date.now(),{cache:'no-store',headers:{Accept:ACCEPT}});if(!r.ok)throw Error('API HTTP '+r.status);const d=await r.json();if(d?.call?.status==='error')throw Error(d.call.error||'API-virhe');return d}
+async function sha256(text){
+  const data=new TextEncoder().encode(text);
+  const hash=await crypto.subtle.digest('SHA-256',data);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function api(path){
+  const split=path.indexOf('?');
+  const method=split>=0?path.slice(0,split):path;
+  const params=new URLSearchParams(split>=0?path.slice(split+1):'');
+  params.set('timeStamp',Date.now());
+  let hashInput=method+'?ysnyp4h6e9egetkc3s3v';
+  for(const [key,value] of params.entries()) hashInput+='&'+key+'='+value;
+  const hash=await sha256(hashInput);
+  params.set('hash',hash);
+  const r=await fetch(API+method+'?'+params.toString(),{cache:'no-store',headers:{Accept:ACCEPT}});
+  if(!r.ok)throw Error('API HTTP '+r.status);
+  const d=await r.json();
+  if(d?.call?.status==='error')throw Error(d.call.error||'API-virhe');
+  return d;
+}
 function played(m){return String(m.status||'').toLowerCase()==='played'||(m.fs_A!==''&&m.fs_A!=null&&m.fs_B!==''&&m.fs_B!=null)}
 function teamMatches(list,id){return list.filter(m=>String(m.team_A_id)===String(id)||String(m.team_B_id)===String(id)).filter(played).sort((a,b)=>(String(b.date||'')+' '+String(b.time||'')).localeCompare(String(a.date||'')+' '+String(a.time||'')))}
 function resultFor(m,id){const home=String(m.team_A_id)===String(id);const own=num(home?m.fs_A:m.fs_B),opp=num(home?m.fs_B:m.fs_A);return {own,opp,win:own>opp,draw:own===opp,opponent:home?m.team_B_name:m.team_A_name,date:m.date||'',id:m.match_id}}
