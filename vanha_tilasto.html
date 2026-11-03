@@ -42,7 +42,23 @@ applyUrlParams();
 const $=id=>document.getElementById(id);
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function showError(s){$('status').textContent=s;$('status').style.display='block';}
-async function getMatch(){let r=await fetch(API+'getMatch?match_id='+encodeURIComponent(MATCH_ID)+'&timeStamp='+Date.now(),{cache:'no-store',headers:{Accept:ACCEPT}});if(!r.ok)throw Error('API HTTP '+r.status);let d=await r.json();if(d&&d.call&&d.call.status==='error')throw Error(d.call.error||'API-virhe');return d;}
+async function sha256(text){
+ const data=new TextEncoder().encode(text);
+ const hash=await crypto.subtle.digest('SHA-256',data);
+ return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function getMatch(){
+ const params={match_id:MATCH_ID,timeStamp:Date.now()};
+ let hashInput='getMatch?ysnyp4h6e9egetkc3s3v';
+ for(const key in params)hashInput+='&'+key+'='+params[key];
+ params.hash=await sha256(hashInput);
+ const url=API+'getMatch?'+new URLSearchParams(params).toString();
+ let r=await fetch(url,{cache:'no-store',headers:{Accept:ACCEPT}});
+ if(!r.ok)throw Error('API HTTP '+r.status);
+ let d=await r.json();
+ if(d&&d.call&&d.call.status==='error')throw Error(d.call.error||'API-virhe');
+ return d;
+}
 function teamIs(e,side){let v=String(e?.kotivieras||e?.team||e?.side||'').toLowerCase();return side==='home'?(v==='koti'||v==='home'||v==='a'||v==='team_a'||v==='1'): (v==='vieras'||v==='away'||v==='b'||v==='team_b'||v==='2');}
 function buildPlayers(events,side){let map={};for(const e of Array.isArray(events)?events:[]){if(!teamIs(e,side))continue;let id=e.player_id??e.playerId??e.shirt_number??e.player_name;if(id==null)continue;if(!map[id])map[id]={num:e.shirt_number??e.player_number??e.number??'',name:e.player_name||e.player||('#'+(e.shirt_number||'')),points:0,fouls:0,two:0,three:0};let p=map[id];let code=String(e.code||'').toLowerCase();let desc=String(e.code_fi||e.description||'').toLowerCase();if(code==='virhe'||desc.includes('virhe'))p.fouls++;if(code==='maali'||code.includes('kori')||desc.includes('kori')){if(desc.includes('3')||String(e.points||'')==='3'||e.value==3){p.points+=3;p.three++;}else if(desc.includes('1')||desc.includes('vapaa')||code.includes('vapaa'))p.points+=1;else{p.points+=2;p.two++;}}}
 return Object.values(map).sort((a,b)=>b.points-a.points||a.name.localeCompare(b.name,'fi'));}

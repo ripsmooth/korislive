@@ -81,6 +81,25 @@ body{display:flex;align-items:center;justify-content:center;font-family:Arial,He
 const API = "https://koripallo-api.torneopal.net/taso/rest/";
 const ACCEPT_VALUE = "json/df8e84j9xtdz269euy3h";
 
+async function sha256(text){
+  const data=new TextEncoder().encode(text);
+  const hash=await crypto.subtle.digest("SHA-256",data);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function torneoFetch(method,params){
+  const queryParams={...params,timeStamp:Date.now()};
+  let hashInput=method+"?ysnyp4h6e9egetkc3s3v";
+  for(const key in queryParams) hashInput+="&"+key+"="+queryParams[key];
+  queryParams.hash=await sha256(hashInput);
+  const url=API+method+"?"+new URLSearchParams(queryParams).toString();
+  const r=await fetch(url,{cache:"no-store",headers:{"Accept":ACCEPT_VALUE}});
+  if(!r.ok) throw new Error("API HTTP "+r.status);
+  const data=await r.json();
+  if(data?.call?.status==="error") throw new Error(data.call.error||"API-virhe");
+  return data;
+}
+
+
 /* Oletussarja, jos URL:ssa ei anneta ottelun ID:tä */
 const DEFAULT_COMPETITION_ID = "vk2627";
 const DEFAULT_CATEGORY_ID = "14";
@@ -156,11 +175,9 @@ async function resolveMatchContext(){
   if(!MATCH_ID || matchContextResolved) return;
   if(matchContextPromise) return matchContextPromise;
   matchContextPromise = (async()=>{
-    const url = API + "getMatch?match_id=" + encodeURIComponent(MATCH_ID) + "&timeStamp=" + Date.now();
-    const r = await fetch(url, {cache:"no-store", headers:{"Accept":ACCEPT_VALUE}});
-    if(!r.ok) throw new Error("Ottelun " + MATCH_ID + " tietojen haku epäonnistui (HTTP " + r.status + ").");
-    const response = await r.json();
-    if(response?.call?.status === "error") throw new Error(response.call.error || "Ottelun tietoja ei löytynyt.");
+    let response;
+    try { response = await torneoFetch("getMatch",{match_id:MATCH_ID}); }
+    catch(e) { throw new Error("Ottelun " + MATCH_ID + " tietojen haku epäonnistui: " + (e?.message||e)); }
     const m = response?.match || response?.data?.match || response?.data || response;
     const objects = [m, m?.group, m?.category, m?.competition, response?.match, response?.data, response];
     const competition = firstId(objects, ["competition_id", "competitionId", "tournament_id", "tournamentId"]);
@@ -181,18 +198,11 @@ async function resolveMatchContext(){
 async function fetchTeamDetails(teamId){
   if(!teamId) return {};
   try{
-    const url = API +
-      "getTeam?team_id=" + encodeURIComponent(teamId) +
-      "&competition_id=" + encodeURIComponent(COMPETITION_ID) +
-      "&category_id=" + encodeURIComponent(CATEGORY_ID) +
-      "&timeStamp=" + Date.now();
-
-    const r = await fetch(url,{
-      cache:"no-store",
-      headers:{ "Accept":ACCEPT_VALUE }
+    const d = await torneoFetch("getTeam",{
+      team_id:teamId,
+      competition_id:COMPETITION_ID,
+      category_id:CATEGORY_ID
     });
-    if(!r.ok) return {};
-    const d = await r.json();
     return d?.team || d || {};
   }catch(e){
     return {};
@@ -201,27 +211,12 @@ async function fetchTeamDetails(teamId){
 
 async function loadStandings(){
   await resolveMatchContext();
-  const url =
-    API +
-    "getGroup" +
-    "?competition_id=" + encodeURIComponent(COMPETITION_ID) +
-    "&category_id=" + encodeURIComponent(CATEGORY_ID) +
-    "&group_id=" + encodeURIComponent(GROUP_ID) +
-    "&matches=1" +
-    "&timeStamp=" + Date.now();
-
-  const r = await fetch(url,{
-    cache:"no-store",
-    headers:{ "Accept":ACCEPT_VALUE }
+  const data = await torneoFetch("getGroup",{
+    competition_id:COMPETITION_ID,
+    category_id:CATEGORY_ID,
+    group_id:GROUP_ID,
+    matches:1
   });
-
-  if(!r.ok) throw new Error("HTTP " + r.status);
-
-  const data = await r.json();
-
-  if(data?.call?.status === "error"){
-    throw new Error(data.call.error || "API-virhe");
-  }
 
   const teams = getTeams(data);
 

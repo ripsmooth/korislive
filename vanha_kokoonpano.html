@@ -60,8 +60,22 @@ document.querySelector('.wrap').style.setProperty('--scale',scale);
 const $=id=>document.getElementById(id);
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function showError(s){$('status').textContent=s;$('status').style.display='block';}
+async function sha256(text){
+ const data=new TextEncoder().encode(text);
+ const hash=await crypto.subtle.digest('SHA-256',data);
+ return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 async function getJson(url){
- const r=await fetch(url+'&timeStamp='+Date.now(),{cache:'no-store',headers:{Accept:ACCEPT}});
+ const parsed=new URL(url,location.href);
+ const method=parsed.pathname.split('/').pop();
+ const params={};
+ parsed.searchParams.forEach((value,key)=>{params[key]=value;});
+ params.timeStamp=Date.now();
+ let hashInput=method+'?ysnyp4h6e9egetkc3s3v';
+ for(const key in params) hashInput+='&'+key+'='+params[key];
+ params.hash=await sha256(hashInput);
+ const requestUrl=API+method+'?'+new URLSearchParams(params).toString();
+ const r=await fetch(requestUrl,{cache:'no-store',headers:{Accept:ACCEPT}});
  if(!r.ok)throw Error('API HTTP '+r.status);
  const d=await r.json();
  if(d?.call?.status==='error')throw Error(d.call.error||'API-virhe');
