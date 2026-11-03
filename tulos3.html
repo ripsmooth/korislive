@@ -415,13 +415,39 @@ function loadInitialMatch(){
   }
 }
 
+async function sha256(text){
+  const data=new TextEncoder().encode(text);
+  const hash=await crypto.subtle.digest("SHA-256",data);
+  return Array.from(new Uint8Array(hash))
+    .map(b=>b.toString(16).padStart(2,"0"))
+    .join("");
+}
+
 async function fetchApi(method){
- const url=API+method+"?match_id="+MATCH_ID+"&timeStamp="+Date.now();
- const r=await fetch(url,{cache:"no-store",headers:{"Accept":ACCEPT_VALUE}});
- if(!r.ok) throw new Error(method+" HTTP "+r.status);
- const d=await r.json();
- if(d?.call?.status==="error") throw new Error(d.call.error||"API-virhe");
- return d;
+  // Basket.fi/TorneoPal allekirjoittaa pyynnön SHA-256-hashilla.
+  // Hashin syöte muodostetaan samassa järjestyksessä kuin Basket.fi:n API-kutsussa.
+  const params={
+    match_id:MATCH_ID,
+    timeStamp:Date.now()
+  };
+
+  let hashInput=method+"?ysnyp4h6e9egetkc3s3v";
+  for(const key in params){
+    hashInput+="&"+key+"="+params[key];
+  }
+
+  const hash=await sha256(hashInput);
+  const query=new URLSearchParams({...params,hash});
+  const url=API+method+"?"+query.toString();
+
+  const r=await fetch(url,{
+    cache:"no-store",
+    headers:{"Accept":ACCEPT_VALUE}
+  });
+  if(!r.ok) throw new Error(method+" HTTP "+r.status);
+  const d=await r.json();
+  if(d?.call?.status==="error") throw new Error(d.call.error||"API-virhe");
+  return d;
 }
 
 async function getMatch(){ return fetchApi("getMatch"); }

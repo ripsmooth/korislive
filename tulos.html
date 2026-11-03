@@ -415,13 +415,48 @@ function loadInitialMatch(){
   }
 }
 
+// Basket.fi / TorneoPal allekirjoittaa jokaisen API-pyynnön SHA-256-hashilla.
+// Hash lasketaan muodosta: endpoint + "?ysnyp4h6e9egetkc3s3v" + parametrit.
+async function sha256(text){
+  const bytes=new TextEncoder().encode(text);
+  const digest=await crypto.subtle.digest("SHA-256",bytes);
+  return Array.from(new Uint8Array(digest))
+    .map(b=>b.toString(16).padStart(2,"0"))
+    .join("");
+}
+
 async function fetchApi(method){
- const url=API+method+"?match_id="+MATCH_ID+"&timeStamp="+Date.now();
- const r=await fetch(url,{cache:"no-store",headers:{"Accept":ACCEPT_VALUE}});
- if(!r.ok) throw new Error(method+" HTTP "+r.status);
- const d=await r.json();
- if(d?.call?.status==="error") throw new Error(d.call.error||"API-virhe");
- return d;
+  // Parametrien järjestys on tärkeä: sama järjestys kuin Basket.fi:n koodissa.
+  const params={
+    match_id:MATCH_ID,
+    timeStamp:Date.now()
+  };
+
+  let hashInput=method+"?ysnyp4h6e9egetkc3s3v";
+  for(const key in params){
+    hashInput+="&"+key+"="+params[key];
+  }
+
+  const hash=await sha256(hashInput);
+  const requestParams={...params,hash};
+
+  // Basket.fi lisää mahdollisen istuntotunnisteen vasta hashin laskemisen jälkeen.
+  try{
+    const sessionId=localStorage.getItem("tpapi_session_id");
+    if(sessionId && !("session_id" in requestParams)){
+      requestParams.session_id=sessionId;
+    }
+  }catch(e){ /* LocalStorage ei ole välttämätön */ }
+
+  const url=API+method+"?"+new URLSearchParams(requestParams).toString();
+  const r=await fetch(url,{
+    cache:"no-store",
+    headers:{"Accept":ACCEPT_VALUE}
+  });
+  if(!r.ok) throw new Error(method+" HTTP "+r.status);
+  const d=await r.json();
+  if(d?.call?.status==="error") throw new Error(d.call.error||"API-virhe");
+  return d;
 }
 
 async function getMatch(){ return fetchApi("getMatch"); }
