@@ -415,10 +415,13 @@ async function resolveFixture(){
  const match=params.get("match");
  if(match){
    const seed="ysnyp4h6e9egetkc3s3v";
-   const source="getMatch?"+seed+"&match_id="+match;
+   // TorneoPalin getMatch-hash muodostetaan samoista parametreista ja samassa
+   // järjestyksessä kuin varsinaisessa kutsussa: match_id ja timeStamp.
+   const timeStamp=String(Date.now());
+   const source="getMatch?"+seed+"&match_id="+match+"&timeStamp="+timeStamp;
    const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(source));
    const hash=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
-   const url="https://koripallo-api.torneopal.net/taso/rest/getMatch?match_id="+encodeURIComponent(match)+"&hash="+hash;
+   const url="https://koripallo-api.torneopal.net/taso/rest/getMatch?match_id="+encodeURIComponent(match)+"&timeStamp="+encodeURIComponent(timeStamp)+"&hash="+hash;
    const r=await fetch(url,{cache:"no-store",headers:{"Accept":"json/df8e84j9xtdz269euy3h","Referer":"https://tulospalvelu.basket.fi/"}});
    const body=await r.text();
    if(!r.ok)throw Error("Ottelun tunnisteen haku epäonnistui: TorneoPal getMatch HTTP "+r.status+(body?" — "+body.slice(0,180):""));
