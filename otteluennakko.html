@@ -92,10 +92,8 @@ function renderStats(team,groups){
 }
 async function load(){let id=$('matchId').value.trim(),date=$('matchDate').value;if(!id){status('Anna ottelun ID.');return}if(!date){status('Valitse ottelun päivämäärä.');return}
  try{status('Haetaan ottelua…');$('rosters').innerHTML='';$('stats').innerHTML='';
- let response=await torneo('getMatch',{match_id:id,timeStamp:Date.now()});
- let m=response?.match||response?.data?.match||response?.data||response;
- if(!m||String(m.match_id)!==String(id))throw Error('Ottelua '+id+' ei löytynyt getMatch-vastauksesta.');
- if(!m.match_external_id)throw Error('Ottelulta puuttuu Sportradar-tunnus (match_external_id).');
+ let matches=await torneo('getMatches',{date});let m=findMatch(matches,id);if(!m)throw Error('Ottelua ei löytynyt valitulta päivältä.');
+ if(!m.match_external_id)throw Error('Ottelulta puuttuu Sportradar-tunnus.');
  status('Haetaan kokoonpanoja ja sarjataulukkoa…');
  let [detail,group]=await Promise.all([json(SR+'fixture_detail?fixtureId='+encodeURIComponent(m.match_external_id)),torneo('getGroup',{competition_id:m.competition_id,category_id:m.category_id,group_id:m.group_id})]);
  let root=detail.data||detail,fixture=root.fixture||{},competitors=fixture.competitors||[];
