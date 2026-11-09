@@ -410,28 +410,35 @@ async function resolveFixture(){
    const obj=JSON.parse(await new Response(await decodeState(input)).text());
    if(obj.f){fixtureId=obj.f;return fixtureId;}
  }
- // Optional legacy match id support: use Basket.fi's own daily fixture list only to map ID.
+ // Resolve the Basket.fi match ID directly. Unlike getMatches, getMatch
+ // is not restricted to a calendar date, so older/future matches are found too.
  const match=params.get("match");
  if(match){
-   const now=new Date();
-   const localDate=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
-   const date=params.get("date")||localDate;
    const seed="ysnyp4h6e9egetkc3s3v";
-   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("getMatches?"+seed+"&date="+date));
+   // TorneoPalin getMatch-hash muodostetaan samoista parametreista ja samassa
+   // järjestyksessä kuin varsinaisessa kutsussa: match_id ja timeStamp.
+   const timeStamp=String(Date.now());
+   const source="getMatch?"+seed+"&match_id="+match+"&timeStamp="+timeStamp;
+   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(source));
    const hash=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
-   const url="https://koripallo-api.torneopal.net/taso/rest/getMatches?date="+encodeURIComponent(date)+"&hash="+hash;
+   const url="https://koripallo-api.torneopal.net/taso/rest/getMatch?match_id="+encodeURIComponent(match)+"&timeStamp="+encodeURIComponent(timeStamp)+"&hash="+hash;
    const r=await fetch(url,{cache:"no-store",headers:{"Accept":"json/df8e84j9xtdz269euy3h","Referer":"https://tulospalvelu.basket.fi/"}});
-   if(!r.ok)throw Error("Ottelun tunnisteen haku epäonnistui: TorneoPal HTTP "+r.status);
-   const data=await r.json();
+   const body=await r.text();
+   if(!r.ok)throw Error("Ottelun tunnisteen haku epäonnistui: TorneoPal getMatch HTTP "+r.status+(body?" — "+body.slice(0,180):""));
+   let data;try{data=JSON.parse(body)}catch{throw Error("TorneoPal getMatch ei palauttanut kelvollista JSON-dataa.");}
    let found=null; const seen=new Set();
    function walk(v){if(!v||typeof v!=="object"||seen.has(v)||found)return;seen.add(v);
      if(!Array.isArray(v)&&v.match_id!=null&&String(v.match_id)===String(match)){found=v;return;}
      for(const x of Object.values(v))walk(x);
    }
    walk(data);
-   if(!found?.match_external_id)throw Error("Ottelulle "+match+" ei löytynyt Sportradar-tunnistetta.");
+   // Some getMatch responses contain the requested match as the root record
+   // without repeating match_id; accept that only when the response is singular.
+   if(!found&&data&&typeof data==="object"&&!Array.isArray(data)&&data.match_external_id)found=data;
+   if(!found?.match_external_id)throw Error("Ottelulle "+match+" ei löytynyt Sportradar-tunnistetta getMatch-vastauksesta.");
    fixtureId=found.match_external_id;return fixtureId;
  }
+
  throw Error("Ottelun tunniste puuttuu. Anna URL-parametri match (Basket.fi-ottelunumero), fixtureId tai state.");
 }
 async function encodeState(obj){

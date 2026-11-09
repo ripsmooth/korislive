@@ -72,9 +72,11 @@ async function createTorneoPalHash(endpoint, queryParams){
 }
 async function resolveFixtureId(){
   if(!MATCH_ID)return null;
-  const queryParams={date:MATCH_DATE};
-  const hash=await createTorneoPalHash('getMatches',queryParams);
-  const url=TORNEOPAL_MATCHES+'?date='+encodeURIComponent(MATCH_DATE)+'&hash='+encodeURIComponent(hash);
+  // getMatch palauttaa ottelun tiedot suoraan match_id:llä.
+  // Sportradar-tunniste löytyy kentästä match.match_external_id.
+  const queryParams={match_id:MATCH_ID,timeStamp:Date.now()};
+  const hash=await createTorneoPalHash('getMatch',queryParams);
+  const url='https://koripallo-api.torneopal.net/taso/rest/getMatch?'+new URLSearchParams({...queryParams,hash});
   let response;
   try {
     response=await fetch(url,{cache:'no-store',headers:{'Accept':TORNEOPAL_ACCEPT,'Referer':'https://tulospalvelu.basket.fi/'}});
@@ -82,18 +84,12 @@ async function resolveFixtureId(){
     throw Error('TorneoPal-yhteys epäonnistui: '+(e?.message||e)+'. Selain/OBS saattaa estää pyynnön (CORS tai verkkovirhe).');
   }
   const body=await response.text();
-  if(!response.ok)throw Error('TorneoPal getMatches HTTP '+response.status+(body?' — '+body.slice(0,350).replace(/\s+/g,' '):''));
+  if(!response.ok)throw Error('TorneoPal getMatch HTTP '+response.status+(body?' — '+body.slice(0,350).replace(/\\s+/g,' '):''));
   let data;
-  try{data=JSON.parse(body);}catch{throw Error('TorneoPal ei palauttanut JSONia. Vastaus alkaa: '+body.slice(0,250).replace(/\s+/g,' '));}
-  const match=findMatchRecord(data,MATCH_ID);
-  if(!match){
-    const keys=data&&typeof data==='object'?Object.keys(data).join(', '):typeof data;
-    const call=data?.call||{};
-    const list=Array.isArray(data?.matches)?data.matches:
-      Array.isArray(data?.data?.matches)?data.data.matches:
-      Array.isArray(data?.result?.matches)?data.result.matches:null;
-    const samples=list?list.slice(0,5).map(x=>String(x?.match_id??'?')).join(', '):'ei löydetty suoraa matches-taulukkoa';
-    throw Error('Ottelua '+MATCH_ID+' ei löydy getMatches-vastauksesta. Päivä='+MATCH_DATE+', HTTP='+response.status+', call.status='+(call.status??'puuttuu')+', total_result_count='+(call.total_result_count??'puuttuu')+'. Juuren avaimet: '+keys+'. Ensimmäiset ottelu-ID:t: '+samples+'. Vastaus alkaa: '+body.slice(0,500).replace(/\s+/g,' '));
+  try{data=JSON.parse(body);}catch{throw Error('TorneoPal getMatch ei palauttanut JSONia. Vastaus alkaa: '+body.slice(0,250).replace(/\\s+/g,' '));}
+  const match=data?.match||data?.data?.match||data?.data||data;
+  if(!match||String(match.match_id)!==String(MATCH_ID)){
+    throw Error('Ottelua '+MATCH_ID+' ei löytynyt getMatch-vastauksesta.');
   }
   if(!match.match_external_id)throw Error('Ottelu '+MATCH_ID+' löytyi, mutta match_external_id puuttuu.');
   return match.match_external_id;
