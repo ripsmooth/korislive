@@ -19,7 +19,7 @@
 <script>
 const API='https://embed-api.eui.connect.sportradar.com/v1/embed/322/fixture_detail';
 const DEFAULT_STATE='eJwljDEKwzAMAL8SNFcQKSKWunftHyLbgkDpYk8t_XsRGe847gsD7guINhZ1QvfVkSgIdbWK7NZDCpMXgtsCr4z7Gx_PpE_SmMc8xzzrSBWpNrGqxSxv7brZLoFh3XduB9dN4fcHiH4fvw';
-const TORNEOPAL_MATCHES='https://koripallo-api.torneopal.net/taso/rest/getMatches';
+const TORNEOPAL_MATCH='https://koripallo-api.torneopal.net/taso/rest/getMatch';
 // Sama SHA-256-hashin muodostus kuin Basket.fi:n omassa TorneoPal-asiakasohjelmassa.
 const TORNEOPAL_HASH_SEED='ysnyp4h6e9egetkc3s3v';
 // Basket.fi:n Network-pyynnöstä löytyvä TorneoPalin API-tunniste Accept-otsakkeessa.
@@ -72,31 +72,29 @@ async function createTorneoPalHash(endpoint, queryParams){
 }
 async function resolveFixtureId(){
   if(!MATCH_ID)return null;
-  const queryParams={date:MATCH_DATE};
-  const hash=await createTorneoPalHash('getMatches',queryParams);
-  const url=TORNEOPAL_MATCHES+'?date='+encodeURIComponent(MATCH_DATE)+'&hash='+encodeURIComponent(hash);
+  // Haetaan ottelun tiedot suoraan Basket.fi-ottelunumerolla.
+  // Hashin parametrien järjestys vastaa Basket.fi:n getMatch-pyyntöä.
+  const timeStamp=String(Date.now());
+  const queryParams={match_id:MATCH_ID,timeStamp};
+  const hash=await createTorneoPalHash('getMatch',queryParams);
+  const url=TORNEOPAL_MATCH+'?match_id='+encodeURIComponent(MATCH_ID)+
+    '&timeStamp='+encodeURIComponent(timeStamp)+'&hash='+encodeURIComponent(hash);
   let response;
   try {
-    response=await fetch(url,{cache:'no-store',headers:{'Accept':TORNEOPAL_ACCEPT,'Referer':'https://tulospalvelu.basket.fi/'}});
+    response=await fetch(url,{cache:'no-store',headers:{
+      'Accept':TORNEOPAL_ACCEPT,
+      'Referer':'https://tulospalvelu.basket.fi/'
+    }});
   } catch(e) {
     throw Error('TorneoPal-yhteys epäonnistui: '+(e?.message||e)+'. Selain/OBS saattaa estää pyynnön (CORS tai verkkovirhe).');
   }
   const body=await response.text();
-  if(!response.ok)throw Error('TorneoPal getMatches HTTP '+response.status+(body?' — '+body.slice(0,350).replace(/\s+/g,' '):''));
+  if(!response.ok)throw Error('TorneoPal getMatch HTTP '+response.status+(body?' — '+body.slice(0,350).replace(/\\s+/g,' '):''));
   let data;
-  try{data=JSON.parse(body);}catch{throw Error('TorneoPal ei palauttanut JSONia. Vastaus alkaa: '+body.slice(0,250).replace(/\s+/g,' '));}
-  const match=findMatchRecord(data,MATCH_ID);
-  if(!match){
-    const keys=data&&typeof data==='object'?Object.keys(data).join(', '):typeof data;
-    const call=data?.call||{};
-    const list=Array.isArray(data?.matches)?data.matches:
-      Array.isArray(data?.data?.matches)?data.data.matches:
-      Array.isArray(data?.result?.matches)?data.result.matches:null;
-    const samples=list?list.slice(0,5).map(x=>String(x?.match_id??'?')).join(', '):'ei löydetty suoraa matches-taulukkoa';
-    throw Error('Ottelua '+MATCH_ID+' ei löydy getMatches-vastauksesta. Päivä='+MATCH_DATE+', HTTP='+response.status+', call.status='+(call.status??'puuttuu')+', total_result_count='+(call.total_result_count??'puuttuu')+'. Juuren avaimet: '+keys+'. Ensimmäiset ottelu-ID:t: '+samples+'. Vastaus alkaa: '+body.slice(0,500).replace(/\s+/g,' '));
-  }
-  if(!match.match_external_id)throw Error('Ottelu '+MATCH_ID+' löytyi, mutta match_external_id puuttuu.');
-  return match.match_external_id;
+  try{data=JSON.parse(body);}catch{throw Error('TorneoPal getMatch ei palauttanut JSONia. Vastaus alkaa: '+body.slice(0,250).replace(/\\s+/g,' '));}
+  const match=data?.match||data?.data?.match||data?.data||data;
+  if(!match?.match_external_id)throw Error('Ottelulle '+MATCH_ID+' ei löytynyt match_external_id-arvoa getMatch-vastauksesta.');
+  return String(match.match_external_id);
 }
 async function getFixture(){
   if(MATCH_ID && !fixtureId){
